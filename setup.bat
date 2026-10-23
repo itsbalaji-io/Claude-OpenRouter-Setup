@@ -17,42 +17,43 @@ if exist "C:\Program Files\nodejs" set "PATH=C:\Program Files\nodejs;!PATH!"
 if exist "%LOCALAPPDATA%\Programs\nodejs" set "PATH=%LOCALAPPDATA%\Programs\nodejs;!PATH!"
 
 :: --------------------------------------------------------------------
-:: 1. Check if Python is already available in PATH
+:: 1. Check if Python is already available and actually functional
+::    (Filters out the Windows 10/11 Microsoft Store dummy app alias)
 :: --------------------------------------------------------------------
 set "PYTHON_CMD="
 
-where python >nul 2>&1
-if %ERRORLEVEL% equ 0 (
-    set "PYTHON_CMD=python"
-) else (
-    where py >nul 2>&1
-    if %ERRORLEVEL% equ 0 (
-        set "PYTHON_CMD=py"
+where py >nul 2>&1
+if not errorlevel 1 (
+    py -V >nul 2>&1
+    if not errorlevel 1 set "PYTHON_CMD=py"
+)
+
+if not defined PYTHON_CMD (
+    where python >nul 2>&1
+    if not errorlevel 1 (
+        python -V >nul 2>&1
+        if not errorlevel 1 set "PYTHON_CMD=python"
     )
 )
 
 :: Check standard local and portable Python installation paths
 if not defined PYTHON_CMD (
-    for %%P in (
-        "%LOCALAPPDATA%\Programs\Python\Python312\python.exe"
-        "%USERPROFILE%\Python312\python.exe"
-        "%~dp0python\python.exe"
-        "C:\Program Files\Python312\python.exe"
-    ) do (
-        if not defined PYTHON_CMD (
-            if exist %%P (
-                set "PYTHON_CMD=%%~P"
-            )
-        )
+    if exist "%LOCALAPPDATA%\Programs\Python\Python312\python.exe" (
+        set "PYTHON_CMD=%LOCALAPPDATA%\Programs\Python\Python312\python.exe"
+    ) else if exist "%USERPROFILE%\Python312\python.exe" (
+        set "PYTHON_CMD=%USERPROFILE%\Python312\python.exe"
+    ) else if exist "%~dp0python\python.exe" (
+        set "PYTHON_CMD=%~dp0python\python.exe"
+    ) else if exist "C:\Program Files\Python312\python.exe" (
+        set "PYTHON_CMD=C:\Program Files\Python312\python.exe"
     )
 )
 
 :: --------------------------------------------------------------------
 :: 2. If Python is still missing, set up portable Python 3.12
-::    (Bypasses WiX / PythonBA.dll 0xc0e90002 errors in Windows Sandbox)
 :: --------------------------------------------------------------------
 if not defined PYTHON_CMD (
-    echo [-] Python was not detected on this system.
+    echo [-] Python runtime was not detected or only Microsoft Store alias is present.
     echo [i] Setting up official portable Python 3.12 runtime...
 
     set "PY_TARGET_DIR=%LOCALAPPDATA%\Programs\Python\Python312"
