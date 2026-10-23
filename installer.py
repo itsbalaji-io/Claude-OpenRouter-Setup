@@ -285,6 +285,59 @@ def has_winget() -> bool:
     return find_executable("winget.exe") is not None
 
 
+def download_file_securely(url: str, dest_path: str, timeout: int = 180) -> bool:
+    """Download a file securely using curl.exe, PowerShell, or urllib with Windows Root Certs."""
+    # Method 1: Try built-in curl.exe (uses Windows Schannel root certificate store natively)
+    curl_exe = shutil.which("curl.exe") or shutil.which("curl")
+    if curl_exe:
+        try:
+            res = subprocess.run(
+                [curl_exe, "-fLo", dest_path, url],
+                capture_output=True,
+                text=True,
+                timeout=timeout,
+            )
+            if res.returncode == 0 and os.path.isfile(dest_path) and os.path.getsize(dest_path) > 1000:
+                return True
+        except Exception:
+            pass
+
+    # Method 2: Try PowerShell (uses Windows Schannel via .NET WebClient)
+    try:
+        ps_cmd = (
+            f"[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; "
+            f"(New-Object Net.WebClient).DownloadFile('{url}', '{dest_path}')"
+        )
+        res = subprocess.run(
+            ["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", ps_cmd],
+            capture_output=True,
+            text=True,
+            timeout=timeout,
+        )
+        if res.returncode == 0 and os.path.isfile(dest_path) and os.path.getsize(dest_path) > 1000:
+            return True
+    except Exception:
+        pass
+
+    # Method 3: urllib with Windows system certificates
+    try:
+        import urllib.request
+        import ssl
+        ctx = ssl.create_default_context()
+        try:
+            ctx.load_default_certs(ssl.Purpose.SERVER_AUTH)
+        except Exception:
+            pass
+        req = urllib.request.Request(url, headers={"User-Agent": "Claude-OpenRouter-Setup/1.0"})
+        with urllib.request.urlopen(req, timeout=timeout, context=ctx) as resp, open(dest_path, "wb") as f:
+            f.write(resp.read())
+        return os.path.isfile(dest_path) and os.path.getsize(dest_path) > 1000
+    except Exception:
+        pass
+
+    return False
+
+
 def install_nodejs() -> Tuple[bool, str]:
     """Install Node.js LTS and npm using winget or direct official portable archive."""
     # Method 1: Try winget if available
@@ -320,7 +373,6 @@ def install_nodejs() -> Tuple[bool, str]:
 
     # Method 2: Direct official Node.js Portable zip (100% reliable in Windows Sandbox)
     try:
-        import urllib.request
         import zipfile
         import tempfile
 
@@ -337,9 +389,8 @@ def install_nodejs() -> Tuple[bool, str]:
 
         zip_url = "https://nodejs.org/dist/v22.14.0/node-v22.14.0-win-x64.zip"
         temp_zip = os.path.join(tempfile.gettempdir(), "node-portable.zip")
-        req = urllib.request.Request(zip_url, headers={"User-Agent": "Claude-OpenRouter-Setup/1.0"})
-        with urllib.request.urlopen(req, timeout=180) as resp, open(temp_zip, "wb") as f:
-            f.write(resp.read())
+        if not download_file_securely(zip_url, temp_zip, timeout=180):
+            return False, "Failed to download Node.js package. Please check network connectivity."
 
         with zipfile.ZipFile(temp_zip, "r") as z:
             for member in z.infolist():

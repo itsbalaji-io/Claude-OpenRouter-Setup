@@ -33,11 +33,23 @@ def repair_windows_sandbox_dns() -> bool:
         return False
 
 
-def _make_request(url: str, headers: Dict[str, str], data: Optional[bytes] = None, timeout: int = 15) -> Tuple[int, Any]:
-    """Helper to perform HTTP requests using standard library urllib with automatic DNS recovery."""
-    req = urllib.request.Request(url, data=data, headers=headers)
+def _get_ssl_context():
+    """Create an SSL context using Windows System Root Certificates."""
+    import ssl
+    ctx = ssl.create_default_context()
     try:
-        with urllib.request.urlopen(req, timeout=timeout) as resp:
+        ctx.load_default_certs(ssl.Purpose.SERVER_AUTH)
+    except Exception:
+        pass
+    return ctx
+
+
+def _make_request(url: str, headers: Dict[str, str], data: Optional[bytes] = None, timeout: int = 15) -> Tuple[int, Any]:
+    """Helper to perform HTTP requests using standard library urllib with automatic DNS recovery and Windows TLS validation."""
+    req = urllib.request.Request(url, data=data, headers=headers)
+    ssl_ctx = _get_ssl_context()
+    try:
+        with urllib.request.urlopen(req, timeout=timeout, context=ssl_ctx) as resp:
             body = resp.read().decode("utf-8", errors="replace")
             try:
                 return resp.status, json.loads(body)
@@ -57,7 +69,7 @@ def _make_request(url: str, headers: Dict[str, str], data: Optional[bytes] = Non
             # Automatically try to repair Sandbox DNS and retry once
             if repair_windows_sandbox_dns():
                 try:
-                    with urllib.request.urlopen(req, timeout=timeout) as resp:
+                    with urllib.request.urlopen(req, timeout=timeout, context=ssl_ctx) as resp:
                         body = resp.read().decode("utf-8", errors="replace")
                         try:
                             return resp.status, json.loads(body)
