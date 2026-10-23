@@ -1,0 +1,36 @@
+# Python bytecode and caches
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.pytest_cache/
+
+# Virtual Environments
+venv/
+env/
+.venv/
+ENV/
+
+# Secrets and local configurations
+.env
+.env.local
+*.key
+*.pem
+credentials.json
+settings.local.json
+
+# Claude Code local state and session data
+.claude/
+*.log
+
+# Distribution and packaging artifacts
+dist/
+build/
+*.egg-info/
+*.zip
+
+# Operating System and IDE artifacts
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

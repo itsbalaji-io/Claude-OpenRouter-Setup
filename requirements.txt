@@ -1,0 +1,8 @@
+# Claude-OpenRouter-Setup Dependencies
+#
+# Note: The core setup tool is fully functional using only the Python 3.10+ standard library
+# (urllib, winreg, ctypes, subprocess, getpass, json).
+#
+# The dependencies below are optional and enhance HTTP performance and credential handling:
+requests>=2.31.0
+keyring>=24.0.0
