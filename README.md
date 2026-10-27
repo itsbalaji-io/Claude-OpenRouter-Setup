@@ -90,7 +90,7 @@ The tool writes the following persistent **Windows User Environment Variables** 
 | :--- | :--- |
 | `OPENROUTER_API_KEY` | Your OpenRouter secret key (`sk-or-v1-...`) |
 | `ANTHROPIC_AUTH_TOKEN` | Set to your OpenRouter API key so Claude Code's Anthropic client authenticates properly |
-| `ANTHROPIC_BASE_URL` | `https://openrouter.ai/api` (Routes requests to OpenRouter's gateway) |
+| `ANTHROPIC_BASE_URL` | `https://openrouter.ai/api/v1` (Routes requests to OpenRouter's gateway) |
 | `OPENROUTER_MODEL` | Dedicated variable storing the selected model identifier |
 | `ANTHROPIC_MODEL` | Default model override for all Claude Code sessions |
 | `ANTHROPIC_DEFAULT_HAIKU_MODEL` | Pinned to your selected OpenRouter model |
