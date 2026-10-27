@@ -12,7 +12,7 @@ import subprocess
 from typing import Dict, Optional, Tuple
 
 ENV_REG_PATH = r"Environment"
-ANTHROPIC_BASE_URL = "https://openrouter.ai/api/v1"
+ANTHROPIC_BASE_URL = "https://openrouter.ai/api"
 DEFAULT_MODEL = "recursive/flint-v1.0:free"
 DEFAULT_CONTEXT_TOKENS = 262144
 

@@ -60,8 +60,8 @@ if not defined PYTHON_CMD (
     if not exist "%LOCALAPPDATA%" set "PY_TARGET_DIR=%USERPROFILE%\Python312"
     if not exist "!PY_TARGET_DIR!" mkdir "!PY_TARGET_DIR!" >nul 2>&1
 
-    set "PY_ZIP=%TEMP%\python-3.12.16-embed.zip"
-    set "PY_URL=https://www.python.org/ftp/python/3.12.16/python-3.12.16-embed-amd64.zip"
+    set "PY_ZIP=%TEMP%\python-3.12.10-embed.zip"
+    set "PY_URL=https://www.python.org/ftp/python/3.12.10/python-3.12.10-embed-amd64.zip"
 
     echo [+] Downloading Python 3.12 package from python.org...
     where curl >nul 2>&1
@@ -92,6 +92,11 @@ if not defined PYTHON_CMD (
         set "PYTHON_CMD=!PY_TARGET_DIR!\python.exe"
         echo [+] Python runtime ready at !PYTHON_CMD!
         
+        :: Enable standard module imports and site-packages in embeddable runtime
+        if exist "!PY_TARGET_DIR!\python312._pth" (
+            powershell -NoProfile -Command "(Get-Content '!PY_TARGET_DIR!\python312._pth') -replace '#import site', 'import site' | Set-Content '!PY_TARGET_DIR!\python312._pth'" >nul 2>&1
+        )
+
         :: Register Python directory in User PATH for future sessions
         powershell -NoProfile -Command "[System.Environment]::SetEnvironmentVariable('Path', [System.Environment]::GetEnvironmentVariable('Path','User') + ';!PY_TARGET_DIR!', 'User')" >nul 2>&1
         set "PATH=!PY_TARGET_DIR!;!PATH!"
