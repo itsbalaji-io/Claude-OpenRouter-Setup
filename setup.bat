@@ -63,12 +63,17 @@ if not defined PYTHON_CMD (
     set "PY_ZIP=%TEMP%\python-3.12.10-embed.zip"
     set "PY_URL=https://www.python.org/ftp/python/3.12.10/python-3.12.10-embed-amd64.zip"
 
+    if exist "!PY_ZIP!" del /f /q "!PY_ZIP!" >nul 2>&1
+
     echo [+] Downloading Python 3.12 package from python.org...
     where curl >nul 2>&1
     if !ERRORLEVEL! equ 0 (
         curl -fLo "!PY_ZIP!" "!PY_URL!"
-    ) else (
-        powershell -NoProfile -ExecutionPolicy Bypass -Command "[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; (New-Object Net.WebClient).DownloadFile('!PY_URL!', '!PY_ZIP!')"
+    )
+
+    if not exist "!PY_ZIP!" (
+        echo [i] Retrying download via PowerShell...
+        powershell -NoProfile -ExecutionPolicy Bypass -Command "[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12 -bor [Net.SecurityProtocolType]::Tls13; (New-Object Net.WebClient).DownloadFile('!PY_URL!', '!PY_ZIP!')"
     )
 
     if not exist "!PY_ZIP!" (
