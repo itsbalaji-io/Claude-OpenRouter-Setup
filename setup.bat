@@ -60,8 +60,8 @@ if not defined PYTHON_CMD (
     if not exist "%LOCALAPPDATA%" set "PY_TARGET_DIR=%USERPROFILE%\Python312"
     if not exist "!PY_TARGET_DIR!" mkdir "!PY_TARGET_DIR!" >nul 2>&1
 
-    set "PY_ZIP=%TEMP%\python-3.12.8-embed.zip"
-    set "PY_URL=https://www.python.org/ftp/python/3.12.8/python-3.12.8-embed-amd64.zip"
+    set "PY_ZIP=%TEMP%\python-3.12.16-embed.zip"
+    set "PY_URL=https://www.python.org/ftp/python/3.12.16/python-3.12.16-embed-amd64.zip"
 
     echo [+] Downloading Python 3.12 package from python.org...
     where curl >nul 2>&1
