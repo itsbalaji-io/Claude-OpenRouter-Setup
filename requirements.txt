@@ -4,5 +4,5 @@
 # (urllib, winreg, ctypes, subprocess, getpass, json).
 #
 # The dependencies below are optional and enhance HTTP performance and credential handling:
-requests>=2.31.0
-keyring>=24.0.0
+requests>=2.34.2
+keyring>=25.7.0
