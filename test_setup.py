@@ -252,5 +252,14 @@ class TestInstallerModule(unittest.TestCase):
         self.assertIn("platform", info)
 
 
+class TestFreeModelsSelection(unittest.TestCase):
+    def test_top_free_models_all_free(self):
+        import main
+        self.assertTrue(len(main.TOP_FREE_MODELS) > 0)
+        for m in main.TOP_FREE_MODELS:
+            self.assertTrue(m["id"].endswith(":free"), f"Model {m['id']} is not free!")
+            self.assertGreater(m.get("context_length", 0), 0)
+
+
 if __name__ == "__main__":
     unittest.main()

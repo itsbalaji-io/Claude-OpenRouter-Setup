@@ -4,6 +4,7 @@ Features:
 - Pure-Python zero-dependency ANSI color and styling engine
 - Cross-platform arrow key navigation (Windows msvcrt + Unix tty/termios)
 - Interactive selectable menus with cursor indicator
+- Clean flicker-free redraws preventing drift or spacing
 - Background animated thread spinner
 - Formatted cards, status badges, and tables
 - Automatic fallback for non-interactive / redirected environments
@@ -13,7 +14,7 @@ import os
 import sys
 import time
 import threading
-from typing import List, Tuple, Optional, Any, Dict
+from typing import List, Tuple, Optional, Any, Dict, Callable
 
 
 # Enable ANSI Virtual Terminal processing on Windows 10/11
@@ -65,17 +66,24 @@ def is_interactive() -> bool:
         return False
 
 
+def clear_screen() -> None:
+    """Clear terminal screen completely and place cursor at row 1, col 1."""
+    if not is_interactive():
+        return
+    if sys.platform == "win32":
+        # Send ANSI home clear
+        sys.stdout.write("\033[H\033[2J")
+        sys.stdout.flush()
+    else:
+        sys.stdout.write("\033[H\033[2J")
+        sys.stdout.flush()
+
+
 def get_key() -> str:
-    """Read a single keypress in a cross-platform manner.
-    
-    Returns:
-        'UP', 'DOWN', 'LEFT', 'RIGHT', 'ENTER', 'ESC', 'BACKSPACE',
-        or single character string.
-    """
+    """Read a single keypress in a cross-platform manner."""
     if sys.platform == "win32":
         import msvcrt
         ch = msvcrt.getch()
-        # Handle special prefix bytes for arrows/function keys
         if ch in (b"\x00", b"\xe0"):
             ch2 = msvcrt.getch()
             mapping = {
@@ -96,7 +104,6 @@ def get_key() -> str:
         except Exception:
             return ""
     else:
-        # Unix / macOS
         import tty
         import termios
         fd = sys.stdin.fileno()
@@ -105,7 +112,6 @@ def get_key() -> str:
             tty.setraw(fd)
             ch = sys.stdin.read(1)
             if ch == "\x1b":
-                # Possible arrow key escape sequence: \x1b[A
                 ch2 = sys.stdin.read(1)
                 if ch2 == "[":
                     ch3 = sys.stdin.read(1)
@@ -135,14 +141,12 @@ class Spinner:
         idx = 0
         while not self._stop_event.is_set():
             frame = self.FRAMES[idx % len(self.FRAMES)]
-            # Write spinner frame and flush
             out = f"\r{Color.CYAN}{frame}{Color.RESET} {self.message} "
             sys.stdout.write(out)
             sys.stdout.flush()
             idx += 1
             time.sleep(0.08)
-        # Clear the spinner line
-        sys.stdout.write("\r" + " " * (len(self.message) + 10) + "\r")
+        sys.stdout.write("\r" + " " * (len(self.message) + 12) + "\r")
         sys.stdout.flush()
 
     def __enter__(self):
@@ -164,25 +168,20 @@ class Spinner:
 
 
 def print_banner(app_name: str = "Claude CLI + OpenRouter Setup", version: str = "v2.0"):
-    """Render a stylized header banner."""
+    """Render a stylized header banner at the top of the screen."""
     width = 68
-    print()
     print(f"{Color.CYAN}{'═' * width}{Color.RESET}")
     title = f"  {app_name}  [{version}]  "
     print(f"{Color.BOLD}{Color.WHITE}{title.center(width)}{Color.RESET}")
     subtitle = "Unified Model Gateway & Environment Manager"
     print(f"{Color.GRAY}{subtitle.center(width)}{Color.RESET}")
-    print(f"{Color.CYAN}{'═' * width}{Color.RESET}")
+    print(f"{Color.CYAN}{'═' * width}{Color.RESET}\n")
 
 
 def print_card(title: str, items: List[Tuple[str, str, str]]):
-    """Render a clean structured card.
-    
-    items: list of (label, value, badge_status)
-    badge_status: 'ok', 'warn', 'error', 'info', or ''
-    """
+    """Render a clean structured card."""
     width = 68
-    print(f"\n{Color.BOLD}{Color.WHITE}┌── {title} {'─' * (width - len(title) - 6)}┐{Color.RESET}")
+    print(f"\n{Color.BOLD}{Color.WHITE}┌── {title} {'─' * max(2, width - len(title) - 6)}┐{Color.RESET}")
     for label, val, status in items:
         badge = ""
         val_color = Color.WHITE
@@ -196,16 +195,11 @@ def print_card(title: str, items: List[Tuple[str, str, str]]):
             badge = f"{Color.RED}✖ FAIL{Color.RESET}"
             val_color = Color.RED
         elif status == "active":
-            badge = f"{Color.CYAN}● ACTIVE{Color.RESET}"
+            badge = f"{Color.CYAN}● CURRENT{Color.RESET}"
             val_color = Color.CYAN
         elif status == "info":
             badge = f"{Color.BLUE}ℹ INFO{Color.RESET}"
 
-        # Align text
-        left = f"│ {Color.GRAY}{label:<24}{Color.RESET} {val_color}{val:<30}{Color.RESET}"
-        pad = width - len(label) - len(val) - 4
-        if pad < 2:
-            pad = 2
         print(f"│  {Color.GRAY}{label:<22}{Color.RESET} {val_color}{val}{Color.RESET} {badge}")
     print(f"{Color.BOLD}{Color.WHITE}└──{'─' * (width - 4)}┘{Color.RESET}")
 
@@ -231,14 +225,13 @@ def menu_select(
     options: List[Dict[str, str]],
     default_index: int = 0,
     subtitle: Optional[str] = None,
+    header_fn: Optional[Callable[[], None]] = None,
 ) -> Optional[int]:
-    """Interactive arrow navigation menu.
+    """Interactive arrow navigation menu with clean screen redrawing.
     
-    Each option in options should have 'title' and optional 'desc'.
-    Returns index of selected option, or None if cancelled.
+    Eliminates vertical spacing drift when Up/Down keys are pressed.
     """
     if not is_interactive():
-        # Fallback to standard numbered prompt in non-interactive shell
         print(f"\n--- {title} ---")
         if subtitle:
             print(subtitle)
@@ -261,17 +254,23 @@ def menu_select(
 
     try:
         while True:
-            # Render menu
-            lines_rendered = 0
-            menu_lines = []
-            menu_lines.append(f"\n{Color.BOLD}{Color.WHITE}{title}{Color.RESET}")
-            if subtitle:
-                menu_lines.append(f"{Color.GRAY}{subtitle}{Color.RESET}")
-            menu_lines.append(f"{Color.GRAY}Use ↑/↓ or j/k to navigate, Enter to select, Esc/q to exit.{Color.RESET}")
-            menu_lines.append("")
+            # 1. Clear screen to top and reset cursor
+            clear_screen()
 
+            # 2. Render header banner
+            if header_fn:
+                header_fn()
+            else:
+                print_banner()
+
+            # 3. Render title & instructions
+            print(f"{Color.BOLD}{Color.WHITE}{title}{Color.RESET}")
+            if subtitle:
+                print(f"{Color.GRAY}{subtitle}{Color.RESET}")
+            print(f"{Color.GRAY}Use ↑/↓ or j/k to navigate, Enter to select, Esc/q to exit.{Color.RESET}\n")
+
+            # 4. Render items
             for idx, opt in enumerate(options):
-                prefix = "  "
                 opt_title = opt.get("title", "")
                 opt_desc = opt.get("desc", "")
                 if idx == selected:
@@ -284,15 +283,13 @@ def menu_select(
                     styled_desc = f"{Color.GRAY}{opt_desc}{Color.RESET}" if opt_desc else ""
 
                 if styled_desc:
-                    menu_lines.append(f"{indicator} {styled_title} {Color.GRAY}—{Color.RESET} {styled_desc}")
+                    print(f"{indicator} {styled_title} {Color.GRAY}—{Color.RESET} {styled_desc}")
                 else:
-                    menu_lines.append(f"{indicator} {styled_title}")
+                    print(f"{indicator} {styled_title}")
 
-            output_block = "\n".join(menu_lines)
-            print(output_block)
-            lines_rendered = len(menu_lines)
+            sys.stdout.flush()
 
-            # Wait for key
+            # 5. Read single key
             key = get_key()
             if key in ("UP", "k", "K"):
                 selected = (selected - 1) % num_opts
@@ -304,13 +301,6 @@ def menu_select(
                 return None
             elif key.isdigit() and int(key) < num_opts:
                 return int(key)
-
-            # Clear menu lines to re-render in place
-            sys.stdout.write(f"\033[{lines_rendered}A\r")
-            for _ in range(lines_rendered):
-                sys.stdout.write("\033[2K\n")
-            sys.stdout.write(f"\033[{lines_rendered}A\r")
-            sys.stdout.flush()
 
     finally:
         # Restore cursor

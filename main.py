@@ -48,14 +48,6 @@ from openrouter import (
     test_inference,
 )
 from verifier import run_full_verification, run_claude_inference_test
-from profiles import (
-    list_profiles,
-    get_active_profile,
-    set_active_profile,
-    create_or_update_profile,
-    delete_profile,
-    CONTEXT_PRESETS,
-)
 from tracker import (
     fetch_openrouter_account_stats,
     get_local_usage_summary,
@@ -64,6 +56,7 @@ from tracker import (
 from tui import (
     Color,
     Spinner,
+    clear_screen,
     print_banner,
     print_card,
     print_success,
@@ -74,6 +67,70 @@ from tui import (
     prompt_text,
     is_interactive,
 )
+
+# Curated Top Free Models on OpenRouter
+TOP_FREE_MODELS: List[Dict[str, Any]] = [
+    {
+        "id": "recursive/flint-v1.0:free",
+        "name": "Recursive Flint 1.0 (Default Free)",
+        "context_length": 262144,
+        "desc": "Ultra-fast instruction & coding model (262k context)",
+    },
+    {
+        "id": "deepseek/deepseek-r1:free",
+        "name": "DeepSeek R1 (Free)",
+        "context_length": 163840,
+        "desc": "DeepSeek R1 full reasoning model (163k context)",
+    },
+    {
+        "id": "deepseek/deepseek-chat:free",
+        "name": "DeepSeek V3 (Free)",
+        "context_length": 163840,
+        "desc": "DeepSeek V3 general chat & coding (163k context)",
+    },
+    {
+        "id": "google/gemini-2.0-flash-thinking-exp:free",
+        "name": "Google Gemini 2.0 Flash Thinking (Free)",
+        "context_length": 1000000,
+        "desc": "Gemini 2.0 Flash with reasoning & 1M context",
+    },
+    {
+        "id": "google/gemini-2.0-flash-exp:free",
+        "name": "Google Gemini 2.0 Flash (Free)",
+        "context_length": 1000000,
+        "desc": "High-speed multimodal Gemini (1M context)",
+    },
+    {
+        "id": "meta-llama/llama-3.3-70b-instruct:free",
+        "name": "Meta Llama 3.3 70B (Free)",
+        "context_length": 131072,
+        "desc": "Meta Llama 3.3 70B open weights instruction-tuned",
+    },
+    {
+        "id": "qwen/qwen-2.5-coder-32b-instruct:free",
+        "name": "Qwen 2.5 Coder 32B (Free)",
+        "context_length": 131072,
+        "desc": "Specialized coding model by Alibaba Cloud",
+    },
+    {
+        "id": "google/gemma-4-31b-it:free",
+        "name": "Google Gemma 4 31B (Free)",
+        "context_length": 262144,
+        "desc": "Google Gemma open instruction model (262k context)",
+    },
+    {
+        "id": "cohere/north-mini-code:free",
+        "name": "Cohere North Mini Code (Free)",
+        "context_length": 256000,
+        "desc": "Cohere code generation model (256k context)",
+    },
+    {
+        "id": "nvidia/nemotron-3.5-super-vl:free",
+        "name": "NVIDIA Nemotron 3.5 Super VL (Free)",
+        "context_length": 1000000,
+        "desc": "NVIDIA Nemotron vision-language model (1M context)",
+    },
+]
 
 
 def print_system_diagnostics():
@@ -103,6 +160,7 @@ def print_system_diagnostics():
 
 def menu_install_or_repair_claude():
     """Option 1: Install or repair Node.js and Claude Code."""
+    clear_screen()
     print_banner()
     print_info("Checking prerequisites for Claude Code CLI...")
 
@@ -115,6 +173,7 @@ def menu_install_or_repair_claude():
             print_success(msg)
         else:
             print_error(msg)
+            input("\nPress Enter to return...")
             return
     else:
         print_success(f"Node.js is available: {node_ver} ({node_path})")
@@ -135,6 +194,7 @@ def menu_install_or_repair_claude():
         print_info("New shell sessions will recognize 'claude' immediately in PATH.")
     else:
         print_error(msg)
+    input("\nPress Enter to return...")
 
 
 def prompt_user_api_key() -> Optional[str]:
@@ -156,6 +216,7 @@ def prompt_user_api_key() -> Optional[str]:
 
 def menu_configure_api_key():
     """Option 2: Configure OpenRouter API key securely."""
+    clear_screen()
     print_banner()
     print_info("Configure OpenRouter API Key")
     print("Your key is validated live and persistently registered in user environment.\n")
@@ -163,11 +224,13 @@ def menu_configure_api_key():
     key = prompt_user_api_key()
     if not key:
         print_error("API key cannot be empty. Operation cancelled.")
+        input("\nPress Enter to return...")
         return
 
     valid_format, fmt_msg = validate_key_format(key)
     if not valid_format:
         print_error(f"Invalid key syntax: {fmt_msg}")
+        input("\nPress Enter to return...")
         return
 
     with Spinner(f"Validating key against OpenRouter auth endpoint ({mask_key(key)})..."):
@@ -184,97 +247,107 @@ def menu_configure_api_key():
     update_api_key(key)
     print_success(f"Configured API key: {mask_key(key)}")
     print_info("Variables updated: OPENROUTER_API_KEY & ANTHROPIC_AUTH_TOKEN.")
+    input("\nPress Enter to return...")
 
 
-def menu_profiles_and_models():
-    """Option 3: Multi-model profile management and context presets."""
-    while True:
-        print_banner()
-        active_name, active_prof = get_active_profile()
-        profs = list_profiles()
+def menu_switch_model():
+    """Option 3: Switch Model (Curated & Live Free Models Only)."""
+    cfg = get_current_configuration()
+    current_model = cfg.get("ANTHROPIC_MODEL", DEFAULT_MODEL)
 
-        opts = []
-        for p in profs:
-            marker = " [ACTIVE]" if p.get("is_active") else ""
-            opts.append({
-                "title": f"{p['name']}{marker}",
-                "desc": f"{p.get('model')} ({p.get('context_tokens', 200000)} tokens) - {p.get('description', '')}",
+    # Fetch live free models from OpenRouter
+    live_models: List[Dict[str, Any]] = []
+    ok, fetched, _ = fetch_models(free_only=True)
+    if ok and fetched:
+        live_models = fetched
+
+    # Merge curated models with live models (avoiding duplicates)
+    known_ids = set()
+    model_choices: List[Dict[str, Any]] = []
+
+    for m in TOP_FREE_MODELS:
+        m_id = m["id"]
+        known_ids.add(m_id)
+        # Check if live data provides a more accurate context length
+        for lm in live_models:
+            if lm.get("id") == m_id:
+                m["context_length"] = lm.get("context_length", m["context_length"])
+                break
+        model_choices.append(m)
+
+    # Add any newly discovered live free models
+    for lm in live_models:
+        lm_id = lm.get("id", "")
+        if lm_id and lm_id not in known_ids and ":free" in lm_id:
+            known_ids.add(lm_id)
+            model_choices.append({
+                "id": lm_id,
+                "name": lm.get("name", lm_id),
+                "context_length": lm.get("context_length", 200000),
+                "desc": f"Live free model ({lm.get('context_length', 200000):,} tokens)",
             })
 
-        opts.append({"title": "➕ Create New Profile", "desc": "Define custom model, context window, and description"})
-        opts.append({"title": "🗑️  Delete a Profile", "desc": "Remove an unwanted profile"})
-        opts.append({"title": "↩  Back to Main Menu", "desc": "Return to the main setup menu"})
+    # Prepare menu options
+    options: List[Dict[str, str]] = []
+    for m in model_choices:
+        is_curr = (m["id"] == current_model)
+        marker = " [CURRENT]" if is_curr else ""
+        ctx_k = f"{m.get('context_length', 200000) // 1000}k" if m.get("context_length") else "N/A"
+        options.append({
+            "title": f"{m['id']}{marker}",
+            "desc": f"{ctx_k} context — {m.get('desc', '')}",
+        })
 
-        choice = menu_select(
-            title="🎭 Model Profiles & Context Presets",
-            subtitle=f"Active Profile: {Color.CYAN}{active_name}{Color.RESET} ({active_prof.get('model')})",
-            options=opts,
-        )
+    options.append({
+        "title": "✏️  Enter Custom Free Model ID",
+        "desc": "Specify any custom OpenRouter free model manually",
+    })
+    options.append({
+        "title": "↩  Cancel",
+        "desc": "Return to main menu without changing model",
+    })
 
-        if choice is None or choice == len(opts) - 1:
-            break
+    choice = menu_select(
+        title="🤖 Switch Model (Free Top Models)",
+        subtitle=f"Current Model: {Color.CYAN}{current_model}{Color.RESET}",
+        options=options,
+    )
 
-        # Delete profile
-        if choice == len(opts) - 2:
-            del_opts = [{"title": p["name"], "desc": p.get("model")} for p in profs if p["name"] != active_name]
-            if not del_opts:
-                print_warn("Cannot delete the active or sole profile.")
-                input("\nPress Enter to continue...")
-                continue
-            del_opts.append({"title": "Cancel", "desc": ""})
-            del_choice = menu_select("Select Profile to Delete", del_opts)
-            if del_choice is not None and del_choice < len(del_opts) - 1:
-                target = del_opts[del_choice]["title"]
-                ok, msg = delete_profile(target)
-                if ok:
-                    print_success(msg)
-                else:
-                    print_error(msg)
-                input("\nPress Enter to continue...")
-            continue
+    if choice is None or choice == len(options) - 1:
+        return
 
-        # Create new profile
-        if choice == len(opts) - 3:
-            name = prompt_text("Enter Profile Name (e.g. my-custom-model)")
-            if not name:
-                continue
-            model_id = prompt_text("Enter OpenRouter Model ID (e.g. anthropic/claude-3.7-sonnet)")
-            if not model_id:
-                continue
+    # Custom model entry
+    if choice == len(options) - 2:
+        custom_id = prompt_text("Enter OpenRouter Model ID (must end in :free)")
+        if not custom_id:
+            return
+        clean_custom = custom_id.strip()
+        ctx_input = prompt_text("Enter Context Tokens", default="262144")
+        ctx_tokens = int(ctx_input) if ctx_input.isdigit() else 262144
+        update_model(clean_custom, context_tokens=ctx_tokens)
+        clear_screen()
+        print_banner()
+        print_success(f"Model updated to: {clean_custom} ({ctx_tokens} context tokens)")
+        input("\nPress Enter to return...")
+        return
 
-            # Context preset select
-            ctx_opts = [{"title": str(c[0]), "desc": c[1]} for c in CONTEXT_PRESETS]
-            ctx_opts.append({"title": "Custom", "desc": "Enter token count manually"})
-            ctx_choice = menu_select("Select Context Window Preset", ctx_opts)
-            if ctx_choice is None:
-                ctx_tokens = 200000
-            elif ctx_choice == len(ctx_opts) - 1:
-                raw_c = prompt_text("Enter Context Tokens", default="200000")
-                ctx_tokens = int(raw_c) if raw_c.isdigit() else 200000
-            else:
-                ctx_tokens = CONTEXT_PRESETS[ctx_choice][0]
+    # Curated / Live selection
+    selected_m = model_choices[choice]
+    sel_id = selected_m["id"]
+    sel_ctx = selected_m.get("context_length", 262144)
 
-            desc = prompt_text("Profile Description", default=f"{model_id} profile")
-            ok, msg = create_or_update_profile(name, model_id, ctx_tokens, description=desc, activate=True)
-            if ok:
-                print_success(msg)
-            else:
-                print_error(msg)
-            input("\nPress Enter to continue...")
-            continue
-
-        # Switch to selected profile
-        selected_prof_name = profs[choice]["name"]
-        ok, msg = set_active_profile(selected_prof_name)
-        if ok:
-            print_success(msg)
-        else:
-            print_error(msg)
-        input("\nPress Enter to continue...")
+    update_model(sel_id, context_tokens=sel_ctx)
+    clear_screen()
+    print_banner()
+    print_success(f"Model successfully switched to: {Color.CYAN}{sel_id}{Color.RESET}")
+    print_info(f"Context window configured: {sel_ctx:,} tokens (CLAUDE_CODE_MAX_CONTEXT_TOKENS)")
+    print_info("New terminal sessions will automatically use this model for Claude Code.")
+    input("\nPress Enter to return...")
 
 
 def menu_token_usage_tracker():
     """Option 4: View live OpenRouter credit usage and local session telemetry."""
+    clear_screen()
     print_banner()
     cfg = get_current_configuration()
     key = cfg.get("OPENROUTER_API_KEY")
@@ -325,6 +398,7 @@ def menu_token_usage_tracker():
 
 def menu_test_connection():
     """Option 5: Test OpenRouter connection and Claude CLI execution."""
+    clear_screen()
     print_banner()
     print_info("Running dual inference verification suite...")
 
@@ -354,12 +428,14 @@ def menu_test_connection():
 
 def menu_display_status():
     """Option 6: Display current configuration status."""
+    clear_screen()
     print_banner()
     status = get_display_status()
-    active_name, active_prof = get_active_profile()
+    cfg = get_current_configuration()
+    current_model = cfg.get("ANTHROPIC_MODEL", DEFAULT_MODEL)
 
     items = [
-        ("Active Profile", f"{active_name} ({active_prof.get('model')})", "active"),
+        ("Current Free Model", f"{current_model}", "active"),
         ("OPENROUTER_API_KEY", status.get("OPENROUTER_API_KEY", "[Not Set]"), "ok" if status.get("OPENROUTER_API_KEY") != "[Not Set]" else "warn"),
         ("ANTHROPIC_AUTH_TOKEN", status.get("ANTHROPIC_AUTH_TOKEN", "[Not Set]"), "ok" if status.get("ANTHROPIC_AUTH_TOKEN") != "[Not Set]" else "warn"),
         ("ANTHROPIC_BASE_URL", status.get("ANTHROPIC_BASE_URL", "[Not Set]"), "ok" if status.get("ANTHROPIC_BASE_URL") == "https://openrouter.ai/api" else "warn"),
@@ -373,6 +449,7 @@ def menu_display_status():
 
 def menu_repair_environment():
     """Option 7: Audit and repair inconsistent environment variables."""
+    clear_screen()
     print_banner()
     print_info("Auditing environment variables for drift or conflicts...")
     repaired, actions = repair_environment()
@@ -387,6 +464,7 @@ def menu_repair_environment():
 
 def run_guided_setup():
     """Option 0: Full step-by-step guided setup."""
+    clear_screen()
     print_banner()
     print_info("Starting Full Guided Setup for Claude Code + OpenRouter...")
     print_system_diagnostics()
@@ -405,8 +483,8 @@ def run_guided_setup():
     else:
         print_success(f"OpenRouter API key is already configured: {mask_key(cfg.get('OPENROUTER_API_KEY'))}")
 
-    # Step 3: Choose Profile / Model
-    menu_profiles_and_models()
+    # Step 3: Choose Free Model
+    menu_switch_model()
 
     # Step 4: Verification test
     menu_test_connection()
@@ -416,8 +494,8 @@ def main():
     parser = argparse.ArgumentParser(description="Claude CLI + OpenRouter Setup Tool")
     parser.add_argument("--status", action="store_true", help="Print configuration status and exit")
     parser.add_argument("--verify", action="store_true", help="Run verification suite and exit")
-    parser.add_argument("--list-profiles", action="store_true", help="List all saved profiles and exit")
-    parser.add_argument("--profile", type=str, help="Switch active profile by name")
+    parser.add_argument("--list-models", action="store_true", help="List all available top free models and exit")
+    parser.add_argument("--model", type=str, help="Switch active free model by ID")
     parser.add_argument("--usage", action="store_true", help="Print token usage summary and exit")
     parser.add_argument("--no-tui", action="store_true", help="Force classic CLI prompt mode")
     args = parser.parse_args()
@@ -431,16 +509,15 @@ def main():
         rep = run_full_verification()
         sys.exit(0 if rep["overall_success"] else 1)
 
-    if args.list_profiles:
-        for p in list_profiles():
-            mark = " [ACTIVE]" if p.get("is_active") else ""
-            print(f"- {p['name']}{mark}: {p.get('model')} ({p.get('context_tokens')} tokens)")
+    if args.list_models:
+        for m in TOP_FREE_MODELS:
+            print(f"- {m['id']}: {m.get('context_length', 200000)} tokens - {m.get('desc', '')}")
         return
 
-    if args.profile:
-        ok, msg = set_active_profile(args.profile)
-        print(msg)
-        sys.exit(0 if ok else 1)
+    if args.model:
+        update_model(args.model)
+        print(f"Model updated to: {args.model}")
+        sys.exit(0)
 
     if args.usage:
         s = get_local_usage_summary()
@@ -449,15 +526,15 @@ def main():
 
     # Interactive Main Loop
     while True:
-        active_name, active_prof = get_active_profile()
         cfg = get_current_configuration()
         key_masked = mask_key(cfg.get("OPENROUTER_API_KEY"))
+        current_model = cfg.get("ANTHROPIC_MODEL", DEFAULT_MODEL)
 
         options = [
             {"title": "🚀 Run Full Guided Setup", "desc": "Step-by-step setup (Prerequisites, Key, Model, Test)"},
             {"title": "📦 Install / Repair Claude Code", "desc": "Install Node.js LTS, npm, and Claude Code CLI"},
             {"title": "🔑 Configure OpenRouter API Key", "desc": f"Manage and validate secret API key (Current: {key_masked})"},
-            {"title": "🎭 Profiles & Model Presets", "desc": f"Switch model & context presets (Active: {active_name})"},
+            {"title": "🤖 Switch Model", "desc": f"Select from all top available free models (Current: {current_model})"},
             {"title": "📊 Token Usage & Account Analytics", "desc": "Inspect OpenRouter credit balance and local session tokens"},
             {"title": "🧪 Test Connection & Dual Inference", "desc": "Execute live verification (Direct API + Claude CLI)"},
             {"title": "📋 View Configuration Status", "desc": "Display all managed environment variables safely"},
@@ -465,15 +542,16 @@ def main():
             {"title": "🚪 Exit", "desc": "Quit setup tool"},
         ]
 
-        print_banner()
         choice = menu_select(
             title="Main Menu",
-            subtitle=f"Active Profile: {Color.CYAN}{active_name}{Color.RESET} | Model: {Color.WHITE}{active_prof.get('model')}{Color.RESET}",
+            subtitle=f"Active Free Model: {Color.CYAN}{current_model}{Color.RESET}",
             options=options,
         )
 
         if choice is None or choice == 8:
-            print(f"\n{Color.CYAN}Goodbye! Enjoy using Claude Code with OpenRouter.{Color.RESET}\n")
+            clear_screen()
+            print_banner()
+            print(f"{Color.CYAN}Goodbye! Enjoy using Claude Code with OpenRouter.{Color.RESET}\n")
             break
         elif choice == 0:
             run_guided_setup()
@@ -482,7 +560,7 @@ def main():
         elif choice == 2:
             menu_configure_api_key()
         elif choice == 3:
-            menu_profiles_and_models()
+            menu_switch_model()
         elif choice == 4:
             menu_token_usage_tracker()
         elif choice == 5:

@@ -57,13 +57,13 @@ This tool automates:
 ════════════════════════════════════════════════════════════════════
 
 Main Menu
-Active Profile: flint-free | Model: recursive/flint-v1.0:free
+Active Free Model: recursive/flint-v1.0:free
 Use ↑/↓ or j/k to navigate, Enter to select, Esc/q to exit.
 
 ❯ 🚀 Run Full Guided Setup — Step-by-step setup (Prerequisites, Key, Model, Test)
   📦 Install / Repair Claude Code — Install Node.js LTS, npm, and Claude Code CLI
   🔑 Configure OpenRouter API Key — Manage and validate secret API key (Current: sk-or-v1-a84...06ebe)
-  🎭 Profiles & Model Presets — Switch model & context presets (Active: flint-free)
+  🤖 Switch Model — Select from all top available free models (Current: recursive/flint-v1.0:free)
   📊 Token Usage & Account Analytics — Inspect OpenRouter credit balance and local session tokens
   🧪 Test Connection & Dual Inference — Execute live verification (Direct API + Claude CLI)
   📋 View Configuration Status — Display all managed environment variables safely
@@ -76,7 +76,7 @@ Use ↑/↓ or j/k to navigate, Enter to select, Esc/q to exit.
 ## Key Features
 
 - **Interactive Terminal UI (TUI)**:
-  - Arrow navigation (`↑`/`↓`/`Enter`/`Esc` or `k`/`j`) with clear ANSI styling.
+  - Arrow navigation (`↑`/`↓`/`Enter`/`Esc` or `k`/`j`) with clean ANSI redrawing (zero vertical spacing drift).
   - Real-time animated background spinners (`⠋ ⠙ ⠹ ⠸ ⠼ ⠴ ⠦ ⠧ ⠇ ⠏`) for network requests and installs.
   - Structured status cards, tables, and color-coded result badges (`PASS`, `WARN`, `FAIL`).
   - Automatic fallback to numeric prompt mode for non-interactive shells or piped inputs.
@@ -84,18 +84,19 @@ Use ↑/↓ or j/k to navigate, Enter to select, Esc/q to exit.
   - **Windows**: Persists variables in `HKCU\Environment` registry and broadcasts `WM_SETTINGCHANGE`.
   - **macOS & Linux**: Persists variables across `~/.bashrc`, `~/.zshrc`, and `~/.profile`.
   - Clipboard auto-detection on all OSes (`powershell Get-Clipboard`, `pbpaste`, `xclip`/`wl-paste`).
-- **Multi-Model Profiles & Presets**:
-  - Switch between curated model configurations in 1 keypress:
-    - `flint-free` (`recursive/flint-v1.0:free`, 262k context)
-    - `claude-3-7-sonnet` (`anthropic/claude-3.7-sonnet`, 200k context)
-    - `claude-3-5-sonnet` (`anthropic/claude-3.5-sonnet`, 200k context)
-    - `deepseek-r1` (`deepseek/deepseek-r1`, 163k context)
-    - `deepseek-chat` (`deepseek/deepseek-chat`, 163k context)
-    - `deepseek-r1-free` (`deepseek/deepseek-r1:free`, 163k context)
-    - `gemini-2-flash` (`google/gemini-2.0-flash-001`, 1M context)
-    - `llama-3-3-70b` (`meta-llama/llama-3.3-70b-instruct`, 131k context)
-    - `qwen-2-5-coder` (`qwen/qwen-2.5-coder-32b-instruct`, 131k context)
-  - Create, clone, or delete custom profiles stored in `~/.claude_openrouter_profiles.json`.
+- **Top Free Models Switcher**:
+  - Switch between all top available free models in 1 keypress:
+    - `recursive/flint-v1.0:free` (Default, 262k context — fast coding & instructions)
+    - `deepseek/deepseek-r1:free` (DeepSeek R1 full reasoning)
+    - `deepseek/deepseek-chat:free` (DeepSeek V3 chat & coding)
+    - `google/gemini-2.0-flash-thinking-exp:free` (Gemini 2.0 Thinking with 1M context)
+    - `google/gemini-2.0-flash-exp:free` (Gemini 2.0 Flash with 1M context)
+    - `meta-llama/llama-3.3-70b-instruct:free` (Meta Llama 3.3 70B open weights)
+    - `qwen/qwen-2.5-coder-32b-instruct:free` (Qwen 2.5 Coder 32B by Alibaba Cloud)
+    - `google/gemma-4-31b-it:free` (Google Gemma 4 31B open instruction model)
+    - `cohere/north-mini-code:free` (Cohere North Mini Code generation model)
+    - `nvidia/nemotron-3.5-super-vl:free` (NVIDIA Nemotron 3.5 Super VL, 1M context)
+    - Plus real-time dynamic querying of any other `:free` models on OpenRouter!
 - **Token Usage & Credit Tracker**:
   - Live account telemetry from OpenRouter `/api/v1/auth/key` (usage, credit balance, rate limits, tier).
   - Local inference session tracking in `~/.claude_openrouter_usage.json` (prompt/completion tokens, latency, request count).
@@ -163,8 +164,8 @@ Automate or inspect the setup without the interactive menu:
 ```bash
 python main.py --status           # Display current environment configuration (masked)
 python main.py --verify           # Run automated end-to-end verification suite
-python main.py --list-profiles    # List all available model profiles
-python main.py --profile <name>   # Switch active profile directly (e.g. --profile deepseek-r1)
+python main.py --list-models      # List all available top free models
+python main.py --model <id>       # Switch active free model directly (e.g. --model deepseek/deepseek-r1:free)
 python main.py --usage            # Output local token usage summary
 python main.py --no-tui           # Run in plain numerical menu mode
 ```

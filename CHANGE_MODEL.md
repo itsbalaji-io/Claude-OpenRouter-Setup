@@ -1,39 +1,50 @@
-# How to Change the Model, Profiles, or OpenRouter API Key
+# How to Change the Model or OpenRouter API Key
 
-This guide explains how to switch models, manage profiles, adjust context window sizes, or update your OpenRouter API key across Windows, macOS, and Linux.
+This guide explains how to switch free models, adjust context window sizes, or update your OpenRouter API key across Windows, macOS, and Linux.
 
 ---
 
-## Method 1: Using Profiles via the Interactive Setup Tool (Recommended)
+## Method 1: Using the Interactive Setup Tool (Recommended)
 
 1. Run the setup tool:
    - On Windows: Run `setup.bat` or `python main.py`
    - On macOS/Linux: Run `./setup.sh` or `python3 main.py`
-2. Select option **`3`** (`Profiles & Model Presets`).
-3. You can:
-   - Select any built-in preset (`flint-free`, `claude-3-7-sonnet`, `deepseek-r1`, `deepseek-chat`, `gemini-2-flash`, `llama-3-3-70b`, `qwen-2-5-coder`).
-   - Create your own custom profile (`➕ Create New Profile`).
-   - Pick a context window size preset (32k, 64k, 128k, 163k, 200k, 262k, 1M, or custom).
-4. The tool automatically updates all required model aliases (`ANTHROPIC_MODEL`, `ANTHROPIC_DEFAULT_HAIKU_MODEL`, `ANTHROPIC_DEFAULT_SONNET_MODEL`, `ANTHROPIC_DEFAULT_OPUS_MODEL`, `CLAUDE_CODE_MAX_CONTEXT_TOKENS`) in persistent user storage.
+   - Or simply run `claude-setup` from anywhere.
+2. Select option **`3`** (`Switch Model`).
+3. You will see a curated and live list of all top available **free models** on OpenRouter:
+   - `recursive/flint-v1.0:free` (Default, 262k context — fast coding & instructions)
+   - `deepseek/deepseek-r1:free` (DeepSeek R1 full reasoning)
+   - `deepseek/deepseek-chat:free` (DeepSeek V3 chat & coding)
+   - `google/gemini-2.0-flash-thinking-exp:free` (Gemini 2.0 Thinking with 1M context)
+   - `google/gemini-2.0-flash-exp:free` (Gemini 2.0 Flash with 1M context)
+   - `meta-llama/llama-3.3-70b-instruct:free` (Meta Llama 3.3 70B open weights)
+   - `qwen/qwen-2.5-coder-32b-instruct:free` (Qwen 2.5 Coder 32B by Alibaba Cloud)
+   - `google/gemma-4-31b-it:free` (Google Gemma 4 31B open instruction model)
+   - `cohere/north-mini-code:free` (Cohere North Mini Code generation model)
+   - `nvidia/nemotron-3.5-super-vl:free` (NVIDIA Nemotron 3.5 Super VL, 1M context)
+   - Any other newly added free models on OpenRouter
+   - Or enter a custom free model ID manually.
+4. Select your preferred free model using arrow keys and press **Enter**.
+5. The tool automatically updates all required model aliases (`ANTHROPIC_MODEL`, `ANTHROPIC_DEFAULT_HAIKU_MODEL`, `ANTHROPIC_DEFAULT_SONNET_MODEL`, `ANTHROPIC_DEFAULT_OPUS_MODEL`, `CLAUDE_CODE_MAX_CONTEXT_TOKENS`) in persistent user storage.
 
 ---
 
-## Method 2: Fast 1-Liner CLI Profile Switching
+## Method 2: Fast CLI 1-Liner Model Switching
 
-You can switch active profiles instantly from your terminal without opening the interactive menu:
+You can switch active models instantly from your terminal without opening the interactive menu:
 
 ```bash
-# List all profiles
-python main.py --list-profiles
+# List all top free models
+python main.py --list-models
 
-# Switch directly to DeepSeek R1
-python main.py --profile deepseek-r1
+# Switch directly to DeepSeek R1 (free)
+python main.py --model deepseek/deepseek-r1:free
 
-# Switch directly to Claude 3.7 Sonnet
-python main.py --profile claude-3-7-sonnet
+# Switch directly to Gemini 2.0 Flash (free)
+python main.py --model google/gemini-2.0-flash-exp:free
 
-# Switch directly to the free default
-python main.py --profile flint-free
+# Switch directly to the default Recursive Flint 1.0 (free)
+python main.py --model recursive/flint-v1.0:free
 ```
 
 ---
@@ -42,8 +53,8 @@ python main.py --profile flint-free
 
 ### On Windows (PowerShell)
 ```powershell
-$NewModel = "anthropic/claude-3.7-sonnet"
-$ContextTokens = "200000"
+$NewModel = "recursive/flint-v1.0:free"
+$ContextTokens = "262144"
 
 [System.Environment]::SetEnvironmentVariable("OPENROUTER_MODEL", $NewModel, "User")
 [System.Environment]::SetEnvironmentVariable("ANTHROPIC_MODEL", $NewModel, "User")
@@ -56,10 +67,10 @@ $ContextTokens = "200000"
 ### On macOS / Linux (Bash / Zsh)
 Add or update in `~/.bashrc` or `~/.zshrc`:
 ```bash
-export OPENROUTER_MODEL="anthropic/claude-3.7-sonnet"
-export ANTHROPIC_MODEL="anthropic/claude-3.7-sonnet"
-export ANTHROPIC_DEFAULT_HAIKU_MODEL="anthropic/claude-3.7-sonnet"
-export ANTHROPIC_DEFAULT_SONNET_MODEL="anthropic/claude-3.7-sonnet"
-export ANTHROPIC_DEFAULT_OPUS_MODEL="anthropic/claude-3.7-sonnet"
-export CLAUDE_CODE_MAX_CONTEXT_TOKENS="200000"
+export OPENROUTER_MODEL="recursive/flint-v1.0:free"
+export ANTHROPIC_MODEL="recursive/flint-v1.0:free"
+export ANTHROPIC_DEFAULT_HAIKU_MODEL="recursive/flint-v1.0:free"
+export ANTHROPIC_DEFAULT_SONNET_MODEL="recursive/flint-v1.0:free"
+export ANTHROPIC_DEFAULT_OPUS_MODEL="recursive/flint-v1.0:free"
+export CLAUDE_CODE_MAX_CONTEXT_TOKENS="262144"
 ```
