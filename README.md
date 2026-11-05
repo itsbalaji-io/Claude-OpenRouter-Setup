@@ -1,6 +1,37 @@
 # Claude CLI + OpenRouter Automated Setup Tool
 
-An automated, cross-platform application that installs, configures, and tests Anthropic's **Claude Code CLI** to route through **OpenRouter** as the unified API provider on **Windows**, **macOS**, and **Linux**.
+[![Platform](https://img.shields.io/badge/Platform-Windows%20%7C%20macOS%20%7C%20Linux-blue.svg)](https://github.com/itsbalaji-io/Claude-OpenRouter-Setup)
+[![Python](https://img.shields.io/badge/Python-3.10%2B-green.svg)](https://www.python.org/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![OpenRouter](https://img.shields.io/badge/OpenRouter-Compatible-purple.svg)](https://openrouter.ai/)
+
+An automated, cross-platform terminal application that installs, configures, and tests Anthropic's **Claude Code CLI** to route through **OpenRouter** as the unified API provider on **Windows**, **macOS**, and **Linux**.
+
+---
+
+## ⚡ 1-Line Quick Install
+
+Install and launch everything with a single command — no manual git cloning or manual Python setup needed:
+
+### Windows (Command Prompt / CMD)
+```cmd
+curl -fsSL https://raw.githubusercontent.com/itsbalaji-io/Claude-OpenRouter-Setup/main/install.cmd -o install.cmd && install.cmd && del install.cmd
+```
+
+### Windows (PowerShell)
+```powershell
+irm https://raw.githubusercontent.com/itsbalaji-io/Claude-OpenRouter-Setup/main/install.ps1 | iex
+```
+
+### macOS & Linux (Terminal)
+```bash
+curl -fsSL https://raw.githubusercontent.com/itsbalaji-io/Claude-OpenRouter-Setup/main/install.sh | bash
+```
+
+> **Instant Access**: The installer registers a global `claude-setup` command in your PATH. You can reopen this setup dashboard anytime from any directory by typing:
+> ```bash
+> claude-setup
+> ```
 
 ---
 
@@ -8,22 +39,51 @@ An automated, cross-platform application that installs, configures, and tests An
 
 Claude Code CLI uses the Anthropic Messages API. By configuring custom environment variables (`ANTHROPIC_BASE_URL` and `ANTHROPIC_AUTH_TOKEN`), Claude Code routes requests to OpenRouter's Anthropic-compatible gateway (`https://openrouter.ai/api/v1/messages`), enabling you to use OpenRouter's diverse model catalogue, including free models like `recursive/flint-v1.0:free`, `deepseek/deepseek-r1:free`, or flagship models like `anthropic/claude-3.7-sonnet` and `deepseek/deepseek-chat`.
 
-This setup tool automates prerequisite detection (Node.js LTS, Claude Code CLI), credential management, profile management, live credit tracking, and dual-layer inference verification without exposing secrets.
+This tool automates:
+1. **Prerequisite detection & installation** (Node.js LTS, npm, and Claude Code CLI).
+2. **Credential management** (masked input, validation against OpenRouter's `/api/v1/auth/key`).
+3. **Multi-model profile switching** and context window token tuning.
+4. **Live credit balance & local token usage telemetry**.
+5. **Dual inference verification** (direct API call + real non-interactive `claude -p` execution).
+
+---
+
+## Interactive Terminal UI (TUI) Preview
+
+```text
+════════════════════════════════════════════════════════════════════
+            Claude CLI + OpenRouter Setup  [v2.0]            
+              Unified Model Gateway & Environment Manager            
+════════════════════════════════════════════════════════════════════
+
+Main Menu
+Active Profile: flint-free | Model: recursive/flint-v1.0:free
+Use ↑/↓ or j/k to navigate, Enter to select, Esc/q to exit.
+
+❯ 🚀 Run Full Guided Setup — Step-by-step setup (Prerequisites, Key, Model, Test)
+  📦 Install / Repair Claude Code — Install Node.js LTS, npm, and Claude Code CLI
+  🔑 Configure OpenRouter API Key — Manage and validate secret API key (Current: sk-or-v1-a84...06ebe)
+  🎭 Profiles & Model Presets — Switch model & context presets (Active: flint-free)
+  📊 Token Usage & Account Analytics — Inspect OpenRouter credit balance and local session tokens
+  🧪 Test Connection & Dual Inference — Execute live verification (Direct API + Claude CLI)
+  📋 View Configuration Status — Display all managed environment variables safely
+  🔧 Repair Environment Variables — Fix URL drift, missing tokens, and conflicts
+  🚪 Exit — Quit setup tool
+```
 
 ---
 
 ## Key Features
 
 - **Interactive Terminal UI (TUI)**:
-  - Arrow key navigation (`↑`/`↓`/`Enter`/`Esc`) with ANSI styling and responsive cursor rendering.
-  - Real-time animated background spinners for network queries and package installations.
-  - Formatted status cards, tables, and diagnostic report badges.
+  - Arrow navigation (`↑`/`↓`/`Enter`/`Esc` or `k`/`j`) with clear ANSI styling.
+  - Real-time animated background spinners (`⠋ ⠙ ⠹ ⠸ ⠼ ⠴ ⠦ ⠧ ⠇ ⠏`) for network requests and installs.
+  - Structured status cards, tables, and color-coded result badges (`PASS`, `WARN`, `FAIL`).
   - Automatic fallback to numeric prompt mode for non-interactive shells or piped inputs.
-- **Cross-Platform Support (Windows, macOS, Linux)**:
+- **Cross-Platform System Persistence**:
   - **Windows**: Persists variables in `HKCU\Environment` registry and broadcasts `WM_SETTINGCHANGE`.
   - **macOS & Linux**: Persists variables across `~/.bashrc`, `~/.zshrc`, and `~/.profile`.
-  - Global executable shims and symlinks (`.cmd` on Windows, symlinks in `~/.local/bin` or `/usr/local/bin` on Unix).
-  - Cross-platform clipboard auto-detection for API key pasting (Windows PowerShell, macOS `pbpaste`, Linux `xclip` / `wl-paste`).
+  - Clipboard auto-detection on all OSes (`powershell Get-Clipboard`, `pbpaste`, `xclip`/`wl-paste`).
 - **Multi-Model Profiles & Presets**:
   - Switch between curated model configurations in 1 keypress:
     - `flint-free` (`recursive/flint-v1.0:free`, 262k context)
@@ -76,30 +136,6 @@ Claude-OpenRouter-Setup/
 
 ---
 
-## ⚡ 1-Line Quick Install
-
-### Windows (Command Prompt / CMD)
-```cmd
-curl -fsSL https://raw.githubusercontent.com/itsbalaji-io/Claude-OpenRouter-Setup/main/install.cmd -o install.cmd && install.cmd && del install.cmd
-```
-
-### Windows (PowerShell)
-```powershell
-irm https://raw.githubusercontent.com/itsbalaji-io/Claude-OpenRouter-Setup/main/install.ps1 | iex
-```
-
-### macOS & Linux (Terminal)
-```bash
-curl -fsSL https://raw.githubusercontent.com/itsbalaji-io/Claude-OpenRouter-Setup/main/install.sh | bash
-```
-
-> **Global command created**: After the 1-line install, you can reopen the interactive setup anytime from any terminal window simply by running:
-> ```bash
-> claude-setup
-> ```
-
----
-
 ## Manual Launch (From Cloned Repository)
 
 ### On Windows
@@ -122,7 +158,7 @@ python main.py
 
 ## CLI Options
 
-You can automate or inspect the setup without the interactive menu:
+Automate or inspect the setup without the interactive menu:
 
 ```bash
 python main.py --status           # Display current environment configuration (masked)
@@ -158,6 +194,20 @@ Run the included unit test suite:
 ```bash
 python test_setup.py
 ```
+
+---
+
+## Troubleshooting
+
+- **Windows Sandbox DNS Failure (`[Errno 11001] getaddrinfo failed`)**:
+  In Windows Sandbox, DNS relay often fails on the virtual adapter. Open PowerShell as Administrator and run:
+  ```powershell
+  Get-NetAdapter | Where-Object Status -eq 'Up' | Set-DnsClientServerAddress -ServerAddresses ('8.8.8.8','1.1.1.1'); Clear-DnsClientCache
+  ```
+- **Changes not reflecting in existing terminal**:
+  Environment changes take effect in newly launched shells. Open a new PowerShell, CMD, or Terminal window after running setup.
+- **Direct Anthropic Fallback**:
+  If Claude Code attempts to contact Anthropic directly instead of OpenRouter, run Option `7` (`Repair Environment Variables`) to remove conflicting `ANTHROPIC_API_KEY` variables.
 
 ---
 
