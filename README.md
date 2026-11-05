@@ -1,28 +1,50 @@
-# Claude CLI + OpenRouter Automated Windows Setup Tool
+# Claude CLI + OpenRouter Automated Setup Tool
 
-An automated, reusable Python application that installs, configures, and tests Anthropic's **Claude Code CLI** to route through **OpenRouter** as the unified API provider on Microsoft Windows.
+An automated, cross-platform application that installs, configures, and tests Anthropic's **Claude Code CLI** to route through **OpenRouter** as the unified API provider on **Windows**, **macOS**, and **Linux**.
 
 ---
 
 ## Overview
 
-Claude Code CLI uses the Anthropic Messages API. By configuring custom environment variables (`ANTHROPIC_BASE_URL` and `ANTHROPIC_AUTH_TOKEN`), Claude Code routes requests to OpenRouter's Anthropic-compatible gateway (`https://openrouter.ai/api/v1/messages`), enabling you to use OpenRouter's diverse model catalogue, including free models like `recursive/flint-v1.0:free`.
+Claude Code CLI uses the Anthropic Messages API. By configuring custom environment variables (`ANTHROPIC_BASE_URL` and `ANTHROPIC_AUTH_TOKEN`), Claude Code routes requests to OpenRouter's Anthropic-compatible gateway (`https://openrouter.ai/api/v1/messages`), enabling you to use OpenRouter's diverse model catalogue, including free models like `recursive/flint-v1.0:free`, `deepseek/deepseek-r1:free`, or flagship models like `anthropic/claude-3.7-sonnet` and `deepseek/deepseek-chat`.
 
-This setup tool automates the detection, prerequisite installation (Node.js LTS, Claude Code CLI), credential management, model binding, and real-world inference testing without exposing secrets.
+This setup tool automates prerequisite detection (Node.js LTS, Claude Code CLI), credential management, profile management, live credit tracking, and dual-layer inference verification without exposing secrets.
 
 ---
 
-## Features
+## Key Features
 
-- **Automated Prerequisite Detection & Installation**: Checks Windows version, PowerShell version, Python 3.10+, Node.js LTS, npm, and Claude Code CLI. Installs missing tools via `winget` or `npm`.
-- **Persistent User-Level Configuration**: Stores settings in `HKCU\Environment` (Windows Registry) and broadcasts `WM_SETTINGCHANGE` so newly launched PowerShell or CMD windows pick up settings automatically.
+- **Interactive Terminal UI (TUI)**:
+  - Arrow key navigation (`↑`/`↓`/`Enter`/`Esc`) with ANSI styling and responsive cursor rendering.
+  - Real-time animated background spinners for network queries and package installations.
+  - Formatted status cards, tables, and diagnostic report badges.
+  - Automatic fallback to numeric prompt mode for non-interactive shells or piped inputs.
+- **Cross-Platform Support (Windows, macOS, Linux)**:
+  - **Windows**: Persists variables in `HKCU\Environment` registry and broadcasts `WM_SETTINGCHANGE`.
+  - **macOS & Linux**: Persists variables across `~/.bashrc`, `~/.zshrc`, and `~/.profile`.
+  - Global executable shims and symlinks (`.cmd` on Windows, symlinks in `~/.local/bin` or `/usr/local/bin` on Unix).
+  - Cross-platform clipboard auto-detection for API key pasting (Windows PowerShell, macOS `pbpaste`, Linux `xclip` / `wl-paste`).
+- **Multi-Model Profiles & Presets**:
+  - Switch between curated model configurations in 1 keypress:
+    - `flint-free` (`recursive/flint-v1.0:free`, 262k context)
+    - `claude-3-7-sonnet` (`anthropic/claude-3.7-sonnet`, 200k context)
+    - `claude-3-5-sonnet` (`anthropic/claude-3.5-sonnet`, 200k context)
+    - `deepseek-r1` (`deepseek/deepseek-r1`, 163k context)
+    - `deepseek-chat` (`deepseek/deepseek-chat`, 163k context)
+    - `deepseek-r1-free` (`deepseek/deepseek-r1:free`, 163k context)
+    - `gemini-2-flash` (`google/gemini-2.0-flash-001`, 1M context)
+    - `llama-3-3-70b` (`meta-llama/llama-3.3-70b-instruct`, 131k context)
+    - `qwen-2-5-coder` (`qwen/qwen-2.5-coder-32b-instruct`, 131k context)
+  - Create, clone, or delete custom profiles stored in `~/.claude_openrouter_profiles.json`.
+- **Token Usage & Credit Tracker**:
+  - Live account telemetry from OpenRouter `/api/v1/auth/key` (usage, credit balance, rate limits, tier).
+  - Local inference session tracking in `~/.claude_openrouter_usage.json` (prompt/completion tokens, latency, request count).
 - **Strict Secret Protection**:
-  - Prompts for API keys with hidden input (`getpass`).
-  - Redacts keys across CLI output, logs, and status checks (e.g., `sk-or-v1-a84...06ebe`).
-  - Does **not** store plaintext keys in `.env` files or source repositories.
-- **Live Model Catalog & Validation**: Queries OpenRouter's API in real time to validate model identifiers, retrieve context window lengths, and check tool support.
-- **Dual Inference Verification**: Tests both direct OpenRouter HTTP inference and actual non-interactive Claude Code CLI execution (`claude -p`).
-- **Idempotent & Modular**: Re-running the application updates existing configurations without creating duplicate entries or reinstalling already configured packages.
+  - Prompts with hidden or masked input.
+  - Redacts keys across CLI outputs, logs, and status checks (e.g., `sk-or-v1-a84...06ebe`).
+  - Never commits plaintext keys or secrets to disk or git.
+- **Dual Inference Verification**:
+  - Tests direct OpenRouter HTTP inference and actual non-interactive Claude Code CLI execution (`claude -p`).
 
 ---
 
@@ -30,148 +52,94 @@ This setup tool automates the detection, prerequisite installation (Node.js LTS,
 
 ```text
 Claude-OpenRouter-Setup/
-├── setup.bat           # 1-Click Windows batch launcher (auto-installs Python via winget if missing)
-├── main.py             # Interactive CLI application & menu workflow
-├── config.py           # Windows Registry environment variable manager
-├── installer.py        # System diagnostics and prerequisite installer (winget / npm)
+├── setup.bat           # 1-Click Windows batch launcher
+├── setup.sh            # 1-Click macOS & Linux bash launcher
+├── main.py             # Main entry point & interactive TUI engine
+├── tui.py              # Zero-dependency terminal UI, arrows, spinners & formatting
+├── profiles.py         # Multi-model profiles & context window presets
+├── tracker.py          # OpenRouter live credit & local token usage telemetry
+├── config.py           # Cross-platform environment variable manager
+├── installer.py        # System diagnostics and installer (winget / brew / apt / npm)
 ├── openrouter.py       # OpenRouter REST API client & model validator
 ├── verifier.py         # End-to-end integration verification suite
-├── test_setup.py       # Unit test suite (9 tests)
-├── requirements.txt    # Optional external dependencies
-├── .env.example        # Safe placeholder template (no real secrets)
+├── test_setup.py       # Unit test suite (12 tests)
+├── requirements.txt    # Optional dependencies
+├── .env.example        # Safe placeholder template
 ├── .gitignore          # Version control ignore rules
-├── CHANGE_MODEL.md     # Quick guide for updating models and keys
+├── CHANGE_MODEL.md     # Quick guide for profiles and switching
 ├── LICENSE             # MIT License
 └── README.md           # Documentation
 ```
 
 ---
 
-## Quickstart (Fresh Windows Machine)
+## Quickstart
 
-### 1. One-Click Launch via `setup.bat` (Recommended)
-Simply double-click **`setup.bat`** or run it from any terminal:
+### On Windows
+Run `setup.bat`:
 ```cmd
 setup.bat
 ```
-- **Auto-installs Python**: If Python is missing, `setup.bat` automatically installs Python 3.12 via `winget`, refreshes your PATH in the active session, and proceeds directly to the setup application.
-- **Auto-installs Node.js & Claude Code**: Through Option 0 or Option 1 in the menu, the tool installs Node.js LTS and Claude Code CLI.
+- Auto-detects Python. If missing, it downloads official portable Python 3.12.
+- Launches the interactive TUI menu.
 
-### 2. Manual Python Launch
-Alternatively, if Python 3.10+ is already installed on your system:
-```powershell
+### On macOS / Linux
+Run `setup.sh`:
+```bash
+chmod +x setup.sh
+./setup.sh
+```
+- Auto-detects Python 3.10+ (or installs via `brew`, `apt`, `dnf`, or `pacman`).
+- Launches the interactive TUI menu.
+
+### Manual Python Launch
+```bash
 python main.py
 ```
 
-Choose **Option 0** for a full guided setup, or choose individual menu items:
+---
 
-```text
-==================================================================
-      Claude CLI + OpenRouter Automated Windows Setup Tool
-==================================================================
-  0. Run Full Guided Setup (Recommended for first-time setup)
-  1. Install or repair Claude Code
-  2. Configure OpenRouter API key
-  3. Change the model
-  4. Test OpenRouter connection & inference
-  5. Display configuration status (never reveals key)
-  6. Repair environment variables
-  7. Exit
-==================================================================
+## CLI Options
+
+You can automate or inspect the setup without the interactive menu:
+
+```bash
+python main.py --status           # Display current environment configuration (masked)
+python main.py --verify           # Run automated end-to-end verification suite
+python main.py --list-profiles    # List all available model profiles
+python main.py --profile <name>   # Switch active profile directly (e.g. --profile deepseek-r1)
+python main.py --usage            # Output local token usage summary
+python main.py --no-tui           # Run in plain numerical menu mode
 ```
 
 ---
 
 ## Environment Variables Configured
 
-The tool writes the following persistent **Windows User Environment Variables** (`HKCU\Environment`):
-
-| Variable Name | Value / Purpose |
+| Variable Name | Purpose |
 | :--- | :--- |
-| `OPENROUTER_API_KEY` | Your OpenRouter secret key (`sk-or-v1-...`) |
-| `ANTHROPIC_AUTH_TOKEN` | Set to your OpenRouter API key so Claude Code's Anthropic client authenticates properly |
-| `ANTHROPIC_BASE_URL` | `https://openrouter.ai/api` (Routes requests to OpenRouter's gateway) |
-| `OPENROUTER_MODEL` | Dedicated variable storing the selected model identifier |
+| `OPENROUTER_API_KEY` | Your OpenRouter API secret key (`sk-or-v1-...`) |
+| `ANTHROPIC_AUTH_TOKEN` | Mirrored OpenRouter API key so Claude Code's Anthropic client authenticates properly |
+| `ANTHROPIC_BASE_URL` | Set to `https://openrouter.ai/api` (Routes Claude Code requests to OpenRouter gateway) |
+| `OPENROUTER_MODEL` | Currently active model identifier |
 | `ANTHROPIC_MODEL` | Default model override for all Claude Code sessions |
-| `ANTHROPIC_DEFAULT_HAIKU_MODEL` | Pinned to your selected OpenRouter model |
-| `ANTHROPIC_DEFAULT_SONNET_MODEL` | Pinned to your selected OpenRouter model |
-| `ANTHROPIC_DEFAULT_OPUS_MODEL` | Pinned to your selected OpenRouter model |
-| `CLAUDE_CODE_MAX_CONTEXT_TOKENS`| Context window size in tokens (e.g. `262144` for Recursive Flint) |
-| `ANTHROPIC_API_KEY` | Explicitly cleared/deleted from User environment to prevent direct Anthropic fallback |
-
-> **Note on PowerShell Sessions:** Persistent user environment variables take effect in newly launched shells. After running setup, open a **new** PowerShell window before running `claude`.
+| `ANTHROPIC_DEFAULT_HAIKU_MODEL` | Pinned to active model |
+| `ANTHROPIC_DEFAULT_SONNET_MODEL` | Pinned to active model |
+| `ANTHROPIC_DEFAULT_OPUS_MODEL` | Pinned to active model |
+| `CLAUDE_CODE_MAX_CONTEXT_TOKENS`| Context window size in tokens (e.g. `200000`, `262144`) |
+| `ANTHROPIC_API_KEY` | Explicitly cleared/deleted to prevent unintentional direct Anthropic calls |
 
 ---
 
-## Verification & Testing
+## Unit Testing
 
-### Run Automated Tests
-To run the included unit tests:
-```powershell
+Run the included unit test suite:
+```bash
 python test_setup.py
 ```
-
-### Run Live CLI Diagnostics
-To inspect configuration status:
-```powershell
-python main.py --status
-```
-
-To run end-to-end inference verification:
-```powershell
-python main.py --test
-```
-
-### Manual Verification in PowerShell
-Open a new PowerShell window and run:
-```powershell
-claude -p "Say hello in one word"
-```
-Sample expected output:
-```text
-Hello!
-```
-
----
-
-## Security Architecture
-
-1. **No Hardcoded Credentials**: Source code, tests, and version control files contain no API keys.
-2. **Registry-Level Isolation**: Environment variables are stored under `HKEY_CURRENT_USER\Environment`. On Windows, this registry hive is secured by user account ACLs, inaccessible to other non-administrator user accounts on the machine.
-3. **No Plaintext Configuration Files**: Keys are not written to `.env`, `.json`, or `.yaml` files in the repository.
-4. **Masked Output**: Diagnostic outputs and logs only show truncated prefixes and suffixes (e.g., `sk-or-v1-a84...06ebe`).
-
----
-
-## Portability to Another Windows System
-
-To transfer this application to another Windows machine:
-1. Copy or extract the `Claude-OpenRouter-Setup` directory (or `Claude-OpenRouter-Setup.zip`).
-2. Open PowerShell in the directory.
-3. Run:
-   ```powershell
-   python main.py
-   ```
-4. Follow the interactive prompts to install dependencies and configure your OpenRouter API key.
-
----
-
-## Troubleshooting
-
-### Issue: `claude : The term 'claude' is not recognized`
-- **Cause**: Path environment variable has not been reloaded in the current terminal.
-- **Solution**: Close PowerShell and open a new PowerShell window, or run `main.py` option 1.
-
-### Issue: `Authentication failed: Invalid OpenRouter API key`
-- **Cause**: Key syntax is invalid or key was revoked on OpenRouter.
-- **Solution**: Check [https://openrouter.ai/keys](https://openrouter.ai/keys) and update via `main.py` option 2.
-
-### Issue: Claude Code attempts to connect to `api.anthropic.com`
-- **Cause**: A conflicting `ANTHROPIC_API_KEY` environment variable is overriding the custom gateway.
-- **Solution**: Run `main.py` option 6 (`Repair environment variables`) to clear stale Anthropic variables.
 
 ---
 
 ## License
 
-This project is licensed under the [MIT License](LICENSE).
+MIT License. See [LICENSE](LICENSE) for details.

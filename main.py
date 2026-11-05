@@ -1,16 +1,14 @@
-"""Claude CLI + OpenRouter Automated Windows Setup Tool
+"""Claude CLI + OpenRouter Automated Setup Tool.
 
-Interactive setup and configuration application for running Claude Code CLI
-with OpenRouter as the API provider on Windows.
+Interactive terminal UI application for configuring Anthropic Claude Code CLI
+with OpenRouter as the unified backend on Windows, macOS, and Linux.
 """
 
 import sys
 import os
-import getpass
 import argparse
-from typing import Optional
+from typing import Optional, List, Dict, Any
 
-# Ensure the project root is always in sys.path (especially for embeddable Python runtimes)
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 if SCRIPT_DIR not in sys.path:
     sys.path.insert(0, SCRIPT_DIR)
@@ -31,8 +29,10 @@ from config import (
 )
 from installer import (
     is_windows,
+    is_macos,
+    is_linux,
     is_admin,
-    get_windows_info,
+    get_system_info,
     get_powershell_version,
     detect_python,
     detect_nodejs,
@@ -48,359 +48,449 @@ from openrouter import (
     test_inference,
 )
 from verifier import run_full_verification, run_claude_inference_test
-
-
-def print_banner():
-    print("=" * 66)
-    print("      Claude CLI + OpenRouter Automated Windows Setup Tool")
-    print("=" * 66)
+from profiles import (
+    list_profiles,
+    get_active_profile,
+    set_active_profile,
+    create_or_update_profile,
+    delete_profile,
+    CONTEXT_PRESETS,
+)
+from tracker import (
+    fetch_openrouter_account_stats,
+    get_local_usage_summary,
+    clear_local_usage,
+)
+from tui import (
+    Color,
+    Spinner,
+    print_banner,
+    print_card,
+    print_success,
+    print_error,
+    print_warn,
+    print_info,
+    menu_select,
+    prompt_text,
+    is_interactive,
+)
 
 
 def print_system_diagnostics():
-    """Display OS, Python, and prerequisites diagnostics."""
-    print("\n--- System Diagnostics ---")
-    if not is_windows():
-        print("[!] Warning: This tool is designed specifically for Windows.")
-    win = get_windows_info()
-    ps_ver = get_powershell_version() or "Not detected"
+    """Display OS, Python, and prerequisites diagnostics in a formatted card."""
+    sys_info = get_system_info()
+    ps_ver = get_powershell_version()
     admin = is_admin()
 
-    print(f"  OS Platform:        {win['platform']}")
-    print(f"  PowerShell Version: {ps_ver}")
-    print(f"  Admin Privileges:   {'Yes (Elevated)' if admin else 'No (Standard User)'}")
-
     py_ok, py_ver = detect_python()
-    print(f"  Python Runtime:     {py_ver} ({'PASS: >=3.10' if py_ok else 'FAIL: Python 3.10+ required'})")
-
     node_ok, node_path, node_ver = detect_nodejs()
-    if node_ok:
-        print(f"  Node.js:            {node_ver} ({node_path})")
-    else:
-        print("  Node.js:            [Not Installed]")
-
     npm_ok, npm_path, npm_ver = detect_npm()
-    if npm_ok:
-        print(f"  npm:                {npm_ver} ({npm_path})")
-    else:
-        print("  npm:                [Not Installed]")
-
     claude_ok, claude_path, claude_ver = detect_claude_code()
-    if claude_ok:
-        print(f"  Claude Code CLI:    {claude_ver} ({claude_path})")
-    else:
-        print("  Claude Code CLI:    [Not Installed]")
-    print("-" * 26)
+
+    items = [
+        ("Platform", f"{sys_info['system']} {sys_info['release']} ({sys_info['machine']})", "info"),
+        ("Admin Privileges", "Yes (Elevated)" if admin else "No (Standard User)", "ok" if admin else "info"),
+        ("Python Runtime", f"{py_ver}", "ok" if py_ok else "error"),
+        ("Node.js LTS", f"{node_ver}" if node_ok else "[Not Installed]", "ok" if node_ok else "warn"),
+        ("npm Package Mgr", f"{npm_ver}" if npm_ok else "[Not Installed]", "ok" if npm_ok else "warn"),
+        ("Claude Code CLI", f"{claude_ver}" if claude_ok else "[Not Installed]", "ok" if claude_ok else "warn"),
+    ]
+    if ps_ver:
+        items.insert(2, ("PowerShell", ps_ver, "info"))
+
+    print_card("System Diagnostics", items)
 
 
 def menu_install_or_repair_claude():
     """Option 1: Install or repair Node.js and Claude Code."""
-    print("\n[+] Checking prerequisites for Claude Code...")
-    node_ok, _, _ = detect_nodejs()
+    print_banner()
+    print_info("Checking prerequisites for Claude Code CLI...")
+
+    node_ok, node_path, node_ver = detect_nodejs()
     if not node_ok:
-        print("[-] Node.js is not installed. Installing Node.js LTS via winget...")
-        success, msg = install_nodejs()
-        print(f"    {msg}")
-        if not success:
-            print("[!] Could not automatically install Node.js. Please install manually from https://nodejs.org/")
+        print_warn("Node.js is not installed. Installing official Node.js LTS package...")
+        with Spinner("Downloading and installing Node.js LTS..."):
+            success, msg = install_nodejs()
+        if success:
+            print_success(msg)
+        else:
+            print_error(msg)
             return
     else:
-        print("[+] Node.js is already installed.")
+        print_success(f"Node.js is available: {node_ver} ({node_path})")
 
     claude_ok, claude_path, claude_ver = detect_claude_code()
     if claude_ok:
-        print(f"[+] Claude Code is already installed: {claude_ver} at {claude_path}")
-        reinstall = input("    Do you want to repair/reinstall Claude Code? (y/N): ").strip().lower()
+        print_info(f"Claude Code is already detected: {claude_ver} at {claude_path}")
+        reinstall = prompt_text("Reinstall or repair Claude Code? (y/N)", default="n").lower()
         if reinstall != "y":
             return
 
-    print("[-] Installing/Repairing Claude Code CLI...")
-    success, msg = install_claude_code()
-    print(f"    {msg}")
+    print_info("Installing / repairing Anthropic Claude Code CLI...")
+    with Spinner("Executing Claude Code installer..."):
+        success, msg = install_claude_code()
+
     if success:
-        print("[+] Claude Code installation completed successfully.")
-        print("[i] Note: Newly opened terminal sessions will have 'claude' immediately in PATH.")
+        print_success(msg)
+        print_info("New shell sessions will recognize 'claude' immediately in PATH.")
+    else:
+        print_error(msg)
 
 
 def prompt_user_api_key() -> Optional[str]:
-    """Smart and reliable API key prompt supporting clipboard detection, Ctrl+V, and right-click paste."""
-    # 1. Check if a valid OpenRouter key is already in the Windows Clipboard
+    """Prompt for API key with clipboard auto-detection across OSes."""
     clip_text = get_clipboard_text()
     if clip_text:
         candidate = clean_api_key(clip_text)
         if candidate.startswith("sk-or-") and len(candidate) > 25:
-            print(f"\n[+] Detected OpenRouter key in Windows Clipboard: {mask_key(candidate)}")
-            use_clip = input("    Press Enter to use this key (or type 'n' to enter manually): ").strip().lower()
+            print_info(f"Detected OpenRouter API key in clipboard: {mask_key(candidate)}")
+            use_clip = prompt_text("Press Enter to use clipboard key (or 'n' to enter manually)", default="y").lower()
             if use_clip != "n":
                 return candidate
 
-    # 2. Direct visible input so pasting works with Ctrl+V or right-click
-    print("\n    Please paste your OpenRouter API Key below.")
-    print("    (You can use Ctrl+V or Right-Click to paste):")
-    raw_key = input("    API Key (sk-or-...): ")
-
+    print("\nPlease enter your OpenRouter API Key (sk-or-v1-...):")
+    raw_key = input("  > ").strip()
     cleaned = clean_api_key(raw_key)
     return cleaned if cleaned else None
 
 
 def menu_configure_api_key():
     """Option 2: Configure OpenRouter API key securely."""
-    print("\n[+] Configure OpenRouter API Key")
-    print("    Your key will be validated against OpenRouter and stored as a persistent")
-    print("    Windows User environment variable (HKCU\\Environment).")
+    print_banner()
+    print_info("Configure OpenRouter API Key")
+    print("Your key is validated live and persistently registered in user environment.\n")
 
     key = prompt_user_api_key()
     if not key:
-        print("[-] API key cannot be empty. Aborted.")
+        print_error("API key cannot be empty. Operation cancelled.")
         return
 
     valid_format, fmt_msg = validate_key_format(key)
     if not valid_format:
-        print(f"[-] Invalid format: {fmt_msg}")
+        print_error(f"Invalid key syntax: {fmt_msg}")
         return
 
-    print(f"\n[-] Validating API key: {mask_key(key)}...")
-    is_valid, meta, msg = validate_api_key(key)
+    with Spinner(f"Validating key against OpenRouter auth endpoint ({mask_key(key)})..."):
+        is_valid, meta, msg = validate_api_key(key)
+
     if not is_valid:
-        print(f"[-] Validation failed: {msg}")
-        override = input("    Save key anyway? (y/N): ").strip().lower()
+        print_error(f"Validation failed: {msg}")
+        override = prompt_text("Save key anyway? (y/N)", default="n").lower()
         if override != "y":
             return
     else:
-        print(f"[+] {msg}")
+        print_success(msg)
 
     update_api_key(key)
-    print(f"[+] API key saved successfully: {mask_key(key)}")
-    print("[i] Configured in persistent user variables: OPENROUTER_API_KEY & ANTHROPIC_AUTH_TOKEN.")
+    print_success(f"Configured API key: {mask_key(key)}")
+    print_info("Variables updated: OPENROUTER_API_KEY & ANTHROPIC_AUTH_TOKEN.")
 
 
-def menu_change_model():
-    """Option 3: Change the configured OpenRouter model."""
-    print("\n[+] Change OpenRouter Model")
-    cfg = get_current_configuration()
-    current_model = cfg.get("ANTHROPIC_MODEL", DEFAULT_MODEL)
-    print(f"    Currently configured model: {current_model}")
+def menu_profiles_and_models():
+    """Option 3: Multi-model profile management and context presets."""
+    while True:
+        print_banner()
+        active_name, active_prof = get_active_profile()
+        profs = list_profiles()
 
-    print("\n[-] Fetching available free models from OpenRouter...")
-    ok, models, _ = fetch_models(free_only=True)
-    if ok and models:
-        print("\n    Available Free Models on OpenRouter:")
-        for idx, m in enumerate(models[:12], 1):
-            m_id = m.get("id")
-            c_len = m.get("context_length", "N/A")
-            marker = " (CURRENT)" if m_id == current_model else ""
-            print(f"      {idx}. {m_id} [Context: {c_len}]{marker}")
-    else:
-        print("    [!] Could not fetch live models catalog. You can still enter a model identifier manually.")
+        opts = []
+        for p in profs:
+            marker = " [ACTIVE]" if p.get("is_active") else ""
+            opts.append({
+                "title": f"{p['name']}{marker}",
+                "desc": f"{p.get('model')} ({p.get('context_tokens', 200000)} tokens) - {p.get('description', '')}",
+            })
 
-    choice = input(f"\n    Enter model number (1-{min(len(models), 12) if ok and models else 0}) or full model ID [default: {DEFAULT_MODEL}]: ").strip()
+        opts.append({"title": "➕ Create New Profile", "desc": "Define custom model, context window, and description"})
+        opts.append({"title": "🗑️  Delete a Profile", "desc": "Remove an unwanted profile"})
+        opts.append({"title": "↩  Back to Main Menu", "desc": "Return to the main setup menu"})
 
-    selected_model = DEFAULT_MODEL
-    context_tokens = DEFAULT_CONTEXT_TOKENS
+        choice = menu_select(
+            title="🎭 Model Profiles & Context Presets",
+            subtitle=f"Active Profile: {Color.CYAN}{active_name}{Color.RESET} ({active_prof.get('model')})",
+            options=opts,
+        )
 
-    if choice.isdigit() and ok and models and 1 <= int(choice) <= len(models):
-        selected_m = models[int(choice) - 1]
-        selected_model = selected_m.get("id")
-        context_tokens = selected_m.get("context_length", DEFAULT_CONTEXT_TOKENS)
-    elif choice:
-        selected_model = choice
-        # Try validating
-        v_ok, v_meta, v_msg = validate_model(selected_model, free_only=False)
-        if v_ok and v_meta:
-            print(f"[+] {v_msg}")
-            context_tokens = v_meta.get("context_length", DEFAULT_CONTEXT_TOKENS)
+        if choice is None or choice == len(opts) - 1:
+            break
+
+        # Delete profile
+        if choice == len(opts) - 2:
+            del_opts = [{"title": p["name"], "desc": p.get("model")} for p in profs if p["name"] != active_name]
+            if not del_opts:
+                print_warn("Cannot delete the active or sole profile.")
+                input("\nPress Enter to continue...")
+                continue
+            del_opts.append({"title": "Cancel", "desc": ""})
+            del_choice = menu_select("Select Profile to Delete", del_opts)
+            if del_choice is not None and del_choice < len(del_opts) - 1:
+                target = del_opts[del_choice]["title"]
+                ok, msg = delete_profile(target)
+                if ok:
+                    print_success(msg)
+                else:
+                    print_error(msg)
+                input("\nPress Enter to continue...")
+            continue
+
+        # Create new profile
+        if choice == len(opts) - 3:
+            name = prompt_text("Enter Profile Name (e.g. my-custom-model)")
+            if not name:
+                continue
+            model_id = prompt_text("Enter OpenRouter Model ID (e.g. anthropic/claude-3.7-sonnet)")
+            if not model_id:
+                continue
+
+            # Context preset select
+            ctx_opts = [{"title": str(c[0]), "desc": c[1]} for c in CONTEXT_PRESETS]
+            ctx_opts.append({"title": "Custom", "desc": "Enter token count manually"})
+            ctx_choice = menu_select("Select Context Window Preset", ctx_opts)
+            if ctx_choice is None:
+                ctx_tokens = 200000
+            elif ctx_choice == len(ctx_opts) - 1:
+                raw_c = prompt_text("Enter Context Tokens", default="200000")
+                ctx_tokens = int(raw_c) if raw_c.isdigit() else 200000
+            else:
+                ctx_tokens = CONTEXT_PRESETS[ctx_choice][0]
+
+            desc = prompt_text("Profile Description", default=f"{model_id} profile")
+            ok, msg = create_or_update_profile(name, model_id, ctx_tokens, description=desc, activate=True)
+            if ok:
+                print_success(msg)
+            else:
+                print_error(msg)
+            input("\nPress Enter to continue...")
+            continue
+
+        # Switch to selected profile
+        selected_prof_name = profs[choice]["name"]
+        ok, msg = set_active_profile(selected_prof_name)
+        if ok:
+            print_success(msg)
         else:
-            print(f"[!] Warning: {v_msg}")
-            cont = input("    Proceed with this model anyway? (Y/n): ").strip().lower()
-            if cont == "n":
-                return
-    else:
-        selected_model = current_model or DEFAULT_MODEL
+            print_error(msg)
+        input("\nPress Enter to continue...")
 
-    update_model(selected_model, context_tokens)
-    print(f"[+] Model updated to: {selected_model}")
-    print(f"[+] Context window set to: {context_tokens} tokens (CLAUDE_CODE_MAX_CONTEXT_TOKENS)")
+
+def menu_token_usage_tracker():
+    """Option 4: View live OpenRouter credit usage and local session telemetry."""
+    print_banner()
+    cfg = get_current_configuration()
+    key = cfg.get("OPENROUTER_API_KEY")
+
+    live_stats = None
+    if key:
+        with Spinner("Querying OpenRouter account API for live credit and rate stats..."):
+            ok, live_stats, msg = fetch_openrouter_account_stats(key)
+        if not ok:
+            print_warn(f"Could not fetch account telemetry: {msg}")
+
+    summary = get_local_usage_summary()
+
+    # OpenRouter Account Card
+    if live_stats:
+        limit_str = f"${live_stats['limit']:.2f}" if live_stats["limit"] is not None else "Unlimited / Post-paid"
+        items = [
+            ("Key Label", str(live_stats["label"]), "info"),
+            ("Account Usage", f"${live_stats['usage']:.4f}", "info"),
+            ("Credit Limit", limit_str, "info"),
+            ("Tier", "Free Tier Router" if live_stats["is_free_tier"] else "Paid / Developer Tier", "ok"),
+        ]
+        if live_stats.get("rate_limit_requests"):
+            items.append(("Rate Limit", f"{live_stats['rate_limit_requests']} req / {live_stats.get('rate_limit_interval', 'min')}", "info"))
+        print_card("OpenRouter Live Account Status", items)
+    else:
+        print_card("OpenRouter Live Account Status", [("Status", "API key missing or endpoint unreachable", "warn")])
+
+    # Local telemetry card
+    loc_items = [
+        ("Total Local Tests", str(summary["total_requests"]), "info"),
+        ("Total Tokens Estimated", f"{summary['total_tokens']:,}", "ok" if summary["total_tokens"] > 0 else "info"),
+        ("Prompt Tokens", f"{summary['total_prompt_tokens']:,}", "info"),
+        ("Completion Tokens", f"{summary['total_completion_tokens']:,}", "info"),
+        ("Recorded Events", str(summary["recent_event_count"]), "info"),
+    ]
+    print_card("Local Session & Inference Telemetry", loc_items)
+
+    print("\nActions:")
+    print("  c. Clear local telemetry log")
+    print("  Enter. Return to main menu")
+    sub = prompt_text("Select action", default="").lower()
+    if sub == "c":
+        clear_local_usage()
+        print_success("Local telemetry cleared.")
+        input("\nPress Enter to return...")
 
 
 def menu_test_connection():
-    """Option 4: Test OpenRouter connection and Claude CLI execution."""
-    print("\n[+] Running Connection & Verification Suite...")
-    report = run_full_verification()
+    """Option 5: Test OpenRouter connection and Claude CLI execution."""
+    print_banner()
+    print_info("Running dual inference verification suite...")
 
-    print("\n--- Test Report ---")
-    print(f"  1. Claude Code CLI:       {'PASS' if report['claude_installed'] else 'FAIL'} ({report['claude_version']})")
-    print(f"  2. Environment Config:    {'PASS' if report['env_configured'] else 'FAIL'}")
-    print(f"  3. OpenRouter Key Auth:   {'PASS' if report['api_key_valid'] else 'FAIL'} ({report['api_key_label']})")
-    print(f"  4. Direct Inference Test: {'PASS' if report['openrouter_direct_test'] else 'FAIL'} -> \"{report['openrouter_direct_response']}\"")
-    print(f"  5. Claude CLI Integration:{'PASS' if report['claude_cli_test'] else 'FAIL'} -> \"{report['claude_cli_response']}\"")
-    print("-" * 19)
+    with Spinner("Testing OpenRouter credentials, model routing, and Claude CLI execution..."):
+        report = run_full_verification()
+
+    items = [
+        ("Claude Code CLI", f"{report['claude_version'] or 'Not Detected'}", "ok" if report["claude_installed"] else "error"),
+        ("Environment Config", "Complete & Valid" if report["env_configured"] else "Incomplete", "ok" if report["env_configured"] else "error"),
+        ("OpenRouter Key Auth", f"{report['api_key_label'] or 'Valid'}", "ok" if report["api_key_valid"] else "error"),
+        ("Direct API Inference", f"{str(report['openrouter_direct_response'])[:36]}...", "ok" if report["openrouter_direct_test"] else "error"),
+        ("Claude CLI Test (-p)", f"{str(report['claude_cli_response'])[:36]}...", "ok" if report["claude_cli_test"] else "warn"),
+    ]
+    print_card("Integration Verification Report", items)
 
     if report["overall_success"]:
-        print("\n[SUCCESS] Claude Code is fully configured and operational with OpenRouter!")
+        print_success("Claude Code is fully configured and operational with OpenRouter!")
     else:
-        print("\n[FAILED] One or more verification checks failed.")
+        print_error("One or more verification checks failed.")
         if report["troubleshooting"]:
-            print("\nTroubleshooting Suggestions:")
+            print(f"\n{Color.YELLOW}Troubleshooting Guidance:{Color.RESET}")
             for item in report["troubleshooting"]:
-                print(f"  - {item}")
+                print(f"  • {item}")
+
+    input("\nPress Enter to return to menu...")
 
 
 def menu_display_status():
-    """Option 5: Display configuration status (secrets redacted)."""
-    print("\n--- Current Configuration Status ---")
+    """Option 6: Display current configuration status."""
+    print_banner()
     status = get_display_status()
-    for k, v in status.items():
-        print(f"  {k:<32}: {v}")
-    print("-" * 36)
-    print("[i] Secret keys are masked for security and never displayed in full.")
-    print("[i] Open a fresh PowerShell terminal for changes to be active in your interactive shell.")
+    active_name, active_prof = get_active_profile()
+
+    items = [
+        ("Active Profile", f"{active_name} ({active_prof.get('model')})", "active"),
+        ("OPENROUTER_API_KEY", status.get("OPENROUTER_API_KEY", "[Not Set]"), "ok" if status.get("OPENROUTER_API_KEY") != "[Not Set]" else "warn"),
+        ("ANTHROPIC_AUTH_TOKEN", status.get("ANTHROPIC_AUTH_TOKEN", "[Not Set]"), "ok" if status.get("ANTHROPIC_AUTH_TOKEN") != "[Not Set]" else "warn"),
+        ("ANTHROPIC_BASE_URL", status.get("ANTHROPIC_BASE_URL", "[Not Set]"), "ok" if status.get("ANTHROPIC_BASE_URL") == "https://openrouter.ai/api" else "warn"),
+        ("ANTHROPIC_MODEL", status.get("ANTHROPIC_MODEL", "[Not Set]"), "info"),
+        ("CLAUDE_MAX_CONTEXT", status.get("CLAUDE_CODE_MAX_CONTEXT_TOKENS", "[Not Set]"), "info"),
+        ("Direct ANTHROPIC_KEY", status.get("ANTHROPIC_API_KEY", "[Cleared]"), "ok"),
+    ]
+    print_card("Current User Environment Configuration", items)
+    input("\nPress Enter to return to menu...")
 
 
-def menu_repair_env():
-    """Option 6: Repair environment variables and network DNS."""
-    print("\n[+] Checking and repairing environment configuration...")
+def menu_repair_environment():
+    """Option 7: Audit and repair inconsistent environment variables."""
+    print_banner()
+    print_info("Auditing environment variables for drift or conflicts...")
     repaired, actions = repair_environment()
     if repaired:
-        print("[+] Completed the following repairs:")
+        print_success(f"Repaired {len(actions)} configuration items:")
         for a in actions:
-            print(f"    - {a}")
+            print(f"  ✔ {a}")
     else:
-        print("[+] All environment variables are consistent.")
-
-    # Network / DNS check
-    print("\n[-] Checking internet connectivity & DNS resolution (openrouter.ai)...")
-    import socket
-    try:
-        ip = socket.gethostbyname("openrouter.ai")
-        print(f"[+] DNS check passed: openrouter.ai -> {ip}")
-    except socket.gaierror:
-        print("[-] DNS resolution failed for openrouter.ai ([Errno 11001]).")
-        print("[-] Attempting automatic DNS repair for Windows Sandbox / Hyper-V...")
-        from openrouter import repair_windows_sandbox_dns
-        if repair_windows_sandbox_dns():
-            try:
-                ip = socket.gethostbyname("openrouter.ai")
-                print(f"[+] DNS repaired successfully: openrouter.ai -> {ip}")
-            except Exception:
-                print("[!] DNS repair attempted, but openrouter.ai is still unreachable. Check host internet or VPN.")
-        else:
-            print("[!] Could not auto-configure DNS. Run in Sandbox PowerShell as Administrator:")
-            print("    Get-NetAdapter | Where-Object Status -eq 'Up' | Set-DnsClientServerAddress -ServerAddresses ('8.8.8.8','1.1.1.1')")
+        print_success("Environment is fully consistent and standard. No repair needed.")
+    input("\nPress Enter to return to menu...")
 
 
-def run_full_guided_setup():
-    """Option 0: Full guided initial setup."""
+def run_guided_setup():
+    """Option 0: Full step-by-step guided setup."""
     print_banner()
+    print_info("Starting Full Guided Setup for Claude Code + OpenRouter...")
     print_system_diagnostics()
 
-    # Step 1: Install prerequisites
-    print("\n[Step 1/5] Checking and Installing Prerequisites...")
-    node_ok, node_p, node_v = detect_nodejs()
-    if not node_ok:
-        print("  Installing Node.js LTS and npm...")
-        ok, msg = install_nodejs()
-        print(f"  {msg}")
-    else:
-        print(f"  Node.js: {node_v} ({node_p})")
-
-    claude_ok, claude_p, claude_v = detect_claude_code()
+    # Step 1: Check / Install Claude Code
+    claude_ok, _, _ = detect_claude_code()
     if not claude_ok:
-        print("  Installing Claude Code CLI...")
-        ok, msg = install_claude_code()
-        print(f"  {msg}")
+        menu_install_or_repair_claude()
     else:
-        print(f"  Claude Code CLI: {claude_v} ({claude_p})")
+        print_success("Claude Code CLI is installed.")
 
     # Step 2: Configure API Key
-    print("\n[Step 2/5] OpenRouter API Key Configuration...")
     cfg = get_current_configuration()
-    existing_key = cfg.get("OPENROUTER_API_KEY")
-    if existing_key:
-        print(f"  Found existing API key: {mask_key(existing_key)}")
-        change = input("  Do you want to use a different key? (y/N): ").strip().lower()
-        if change == "y":
-            menu_configure_api_key()
-    else:
+    if not cfg.get("OPENROUTER_API_KEY"):
         menu_configure_api_key()
+    else:
+        print_success(f"OpenRouter API key is already configured: {mask_key(cfg.get('OPENROUTER_API_KEY'))}")
 
-    # Step 3: Select Model
-    print("\n[Step 3/5] OpenRouter Model Selection...")
-    menu_change_model()
+    # Step 3: Choose Profile / Model
+    menu_profiles_and_models()
 
-    # Step 4: Repair / Ensure env consistency
-    print("\n[Step 4/5] Standardizing Environment Variables...")
-    repair_environment()
-
-    # Step 5: Verify
-    print("\n[Step 5/5] End-to-End Verification...")
+    # Step 4: Verification test
     menu_test_connection()
 
 
-def interactive_menu():
-    """Interactive console menu loop."""
-    while True:
-        print_banner()
-        print("  0. Run Full Guided Setup (Recommended for first-time setup)")
-        print("  1. Install or repair Claude Code")
-        print("  2. Configure OpenRouter API key")
-        print("  3. Change the model")
-        print("  4. Test OpenRouter connection & inference")
-        print("  5. Display configuration status (never reveals key)")
-        print("  6. Repair environment variables")
-        print("  7. Exit")
-        print("=" * 66)
-
-        choice = input("Select an option (0-7): ").strip()
-        if choice == "0":
-            run_full_guided_setup()
-        elif choice == "1":
-            menu_install_or_repair_claude()
-        elif choice == "2":
-            menu_configure_api_key()
-        elif choice == "3":
-            menu_change_model()
-        elif choice == "4":
-            menu_test_connection()
-        elif choice == "5":
-            menu_display_status()
-        elif choice == "6":
-            menu_repair_env()
-        elif choice in ("7", "q", "exit"):
-            print("\nExiting. Thank you!")
-            break
-        else:
-            print("\n[-] Invalid selection. Please enter a number from 0 to 7.")
-
-        input("\nPress Enter to return to the menu...")
-
-
-def ensure_dns_connectivity():
-    """Verify and auto-fix DNS for Windows Sandbox / Hyper-V environments."""
-    import socket
-    try:
-        socket.gethostbyname("openrouter.ai")
-    except Exception:
-        from openrouter import repair_windows_sandbox_dns
-        repair_windows_sandbox_dns()
-
-
 def main():
-    parser = argparse.ArgumentParser(description="Claude CLI + OpenRouter Automated Windows Setup Tool")
-    parser.add_argument("--full-setup", action="store_true", help="Run the full guided setup non-interactively where possible")
-    parser.add_argument("--test", action="store_true", help="Run the verification suite and exit")
-    parser.add_argument("--status", action="store_true", help="Display current configuration status and exit")
+    parser = argparse.ArgumentParser(description="Claude CLI + OpenRouter Setup Tool")
+    parser.add_argument("--status", action="store_true", help="Print configuration status and exit")
+    parser.add_argument("--verify", action="store_true", help="Run verification suite and exit")
+    parser.add_argument("--list-profiles", action="store_true", help="List all saved profiles and exit")
+    parser.add_argument("--profile", type=str, help="Switch active profile by name")
+    parser.add_argument("--usage", action="store_true", help="Print token usage summary and exit")
+    parser.add_argument("--no-tui", action="store_true", help="Force classic CLI prompt mode")
     args = parser.parse_args()
 
-    # Automatically ensure DNS is functional (especially inside Windows Sandbox)
-    ensure_dns_connectivity()
-
+    # CLI flag operations
     if args.status:
         menu_display_status()
-    elif args.test:
-        menu_test_connection()
-    elif args.full_setup:
-        run_full_guided_setup()
-    else:
-        interactive_menu()
+        return
+
+    if args.verify:
+        rep = run_full_verification()
+        sys.exit(0 if rep["overall_success"] else 1)
+
+    if args.list_profiles:
+        for p in list_profiles():
+            mark = " [ACTIVE]" if p.get("is_active") else ""
+            print(f"- {p['name']}{mark}: {p.get('model')} ({p.get('context_tokens')} tokens)")
+        return
+
+    if args.profile:
+        ok, msg = set_active_profile(args.profile)
+        print(msg)
+        sys.exit(0 if ok else 1)
+
+    if args.usage:
+        s = get_local_usage_summary()
+        print(f"Total requests: {s['total_requests']}, Total tokens: {s['total_tokens']}")
+        return
+
+    # Interactive Main Loop
+    while True:
+        active_name, active_prof = get_active_profile()
+        cfg = get_current_configuration()
+        key_masked = mask_key(cfg.get("OPENROUTER_API_KEY"))
+
+        options = [
+            {"title": "🚀 Run Full Guided Setup", "desc": "Step-by-step setup (Prerequisites, Key, Model, Test)"},
+            {"title": "📦 Install / Repair Claude Code", "desc": "Install Node.js LTS, npm, and Claude Code CLI"},
+            {"title": "🔑 Configure OpenRouter API Key", "desc": f"Manage and validate secret API key (Current: {key_masked})"},
+            {"title": "🎭 Profiles & Model Presets", "desc": f"Switch model & context presets (Active: {active_name})"},
+            {"title": "📊 Token Usage & Account Analytics", "desc": "Inspect OpenRouter credit balance and local session tokens"},
+            {"title": "🧪 Test Connection & Dual Inference", "desc": "Execute live verification (Direct API + Claude CLI)"},
+            {"title": "📋 View Configuration Status", "desc": "Display all managed environment variables safely"},
+            {"title": "🔧 Repair Environment Variables", "desc": "Fix URL drift, missing tokens, and conflicts"},
+            {"title": "🚪 Exit", "desc": "Quit setup tool"},
+        ]
+
+        print_banner()
+        choice = menu_select(
+            title="Main Menu",
+            subtitle=f"Active Profile: {Color.CYAN}{active_name}{Color.RESET} | Model: {Color.WHITE}{active_prof.get('model')}{Color.RESET}",
+            options=options,
+        )
+
+        if choice is None or choice == 8:
+            print(f"\n{Color.CYAN}Goodbye! Enjoy using Claude Code with OpenRouter.{Color.RESET}\n")
+            break
+        elif choice == 0:
+            run_guided_setup()
+        elif choice == 1:
+            menu_install_or_repair_claude()
+        elif choice == 2:
+            menu_configure_api_key()
+        elif choice == 3:
+            menu_profiles_and_models()
+        elif choice == 4:
+            menu_token_usage_tracker()
+        elif choice == 5:
+            menu_test_connection()
+        elif choice == 6:
+            menu_display_status()
+        elif choice == 7:
+            menu_repair_environment()
 
 
 if __name__ == "__main__":

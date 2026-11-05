@@ -1,89 +1,65 @@
-# How to Change the Model or OpenRouter API Key
+# How to Change the Model, Profiles, or OpenRouter API Key
 
-This guide provides simple methods to update your OpenRouter model or API key on Windows without reinstalling Claude Code.
-
----
-
-## Method 1: Using the Interactive Setup Tool (Recommended)
-
-1. Open **PowerShell** or **Command Prompt**.
-2. Navigate to the setup folder:
-   ```powershell
-   cd C:\Users\Balaji\Claude-OpenRouter-Setup
-   python main.py
-   ```
-3. To change the **model**:
-   - Select option **`3`** (`Change the model`).
-   - The tool will fetch the latest free models from OpenRouter.
-   - Select a number from the list or type any model ID (e.g., `recursive/flint-v1.0:free`, `google/gemma-4-26b-a4b-it:free`, etc.).
-   - The tool updates all matching model aliases (`ANTHROPIC_MODEL`, `ANTHROPIC_DEFAULT_HAIKU_MODEL`, `ANTHROPIC_DEFAULT_SONNET_MODEL`, `ANTHROPIC_DEFAULT_OPUS_MODEL`) and sets the context window automatically.
-4. To change the **API Key**:
-   - Select option **`2`** (`Configure OpenRouter API key`).
-   - Paste your new key (input is masked for security).
-   - The key is validated against OpenRouter and saved.
-5. Select option **`4`** to verify your changes.
+This guide explains how to switch models, manage profiles, adjust context window sizes, or update your OpenRouter API key across Windows, macOS, and Linux.
 
 ---
 
-## Method 2: Changing Variables via PowerShell
+## Method 1: Using Profiles via the Interactive Setup Tool (Recommended)
 
-If you prefer using PowerShell commands directly, run the following:
+1. Run the setup tool:
+   - On Windows: Run `setup.bat` or `python main.py`
+   - On macOS/Linux: Run `./setup.sh` or `python3 main.py`
+2. Select option **`3`** (`Profiles & Model Presets`).
+3. You can:
+   - Select any built-in preset (`flint-free`, `claude-3-7-sonnet`, `deepseek-r1`, `deepseek-chat`, `gemini-2-flash`, `llama-3-3-70b`, `qwen-2-5-coder`).
+   - Create your own custom profile (`➕ Create New Profile`).
+   - Pick a context window size preset (32k, 64k, 128k, 163k, 200k, 262k, 1M, or custom).
+4. The tool automatically updates all required model aliases (`ANTHROPIC_MODEL`, `ANTHROPIC_DEFAULT_HAIKU_MODEL`, `ANTHROPIC_DEFAULT_SONNET_MODEL`, `ANTHROPIC_DEFAULT_OPUS_MODEL`, `CLAUDE_CODE_MAX_CONTEXT_TOKENS`) in persistent user storage.
 
-### To Change the Model:
+---
+
+## Method 2: Fast 1-Liner CLI Profile Switching
+
+You can switch active profiles instantly from your terminal without opening the interactive menu:
+
+```bash
+# List all profiles
+python main.py --list-profiles
+
+# Switch directly to DeepSeek R1
+python main.py --profile deepseek-r1
+
+# Switch directly to Claude 3.7 Sonnet
+python main.py --profile claude-3-7-sonnet
+
+# Switch directly to the free default
+python main.py --profile flint-free
+```
+
+---
+
+## Method 3: Manual Environment Variable Updates
+
+### On Windows (PowerShell)
 ```powershell
-# Set your desired model
-$NewModel = "recursive/flint-v1.0:free"
+$NewModel = "anthropic/claude-3.7-sonnet"
+$ContextTokens = "200000"
 
 [System.Environment]::SetEnvironmentVariable("OPENROUTER_MODEL", $NewModel, "User")
 [System.Environment]::SetEnvironmentVariable("ANTHROPIC_MODEL", $NewModel, "User")
 [System.Environment]::SetEnvironmentVariable("ANTHROPIC_DEFAULT_HAIKU_MODEL", $NewModel, "User")
 [System.Environment]::SetEnvironmentVariable("ANTHROPIC_DEFAULT_SONNET_MODEL", $NewModel, "User")
 [System.Environment]::SetEnvironmentVariable("ANTHROPIC_DEFAULT_OPUS_MODEL", $NewModel, "User")
-
-Write-Host "Model updated to: $NewModel"
+[System.Environment]::SetEnvironmentVariable("CLAUDE_CODE_MAX_CONTEXT_TOKENS", $ContextTokens, "User")
 ```
 
-### To Change the API Key:
-```powershell
-# Prompt securely without printing the key
-$SecureKey = Read-Host -Prompt "Enter new OpenRouter API Key" -AsSecureString
-$BSTR = [System.Runtime.InteropServices.Marshal]::SecureStringToBSTR($SecureKey)
-$PlainKey = [System.Runtime.InteropServices.Marshal]::PtrToStringAuto($BSTR)
-
-[System.Environment]::SetEnvironmentVariable("OPENROUTER_API_KEY", $PlainKey, "User")
-[System.Environment]::SetEnvironmentVariable("ANTHROPIC_AUTH_TOKEN", $PlainKey, "User")
-
-Write-Host "API key updated successfully."
-```
-
-> **Important:** After updating user environment variables directly in PowerShell, open a **new** PowerShell window so the terminal session inherits the updated variables.
-
----
-
-## Method 3: Temporarily Changing the Model for a Single Session
-
-You can override the model for just the current terminal session without affecting persistent settings:
-
-```powershell
-$env:ANTHROPIC_MODEL = "recursive/flint-v1.0:free"
-claude
-```
-
-Or pass the `--model` flag directly to Claude Code:
-
-```powershell
-claude --model recursive/flint-v1.0:free
-```
-
----
-
-## Verifying the Change
-
-Run the setup tool's verification command:
-```powershell
-python main.py --test
-```
-Or check the current status:
-```powershell
-python main.py --status
+### On macOS / Linux (Bash / Zsh)
+Add or update in `~/.bashrc` or `~/.zshrc`:
+```bash
+export OPENROUTER_MODEL="anthropic/claude-3.7-sonnet"
+export ANTHROPIC_MODEL="anthropic/claude-3.7-sonnet"
+export ANTHROPIC_DEFAULT_HAIKU_MODEL="anthropic/claude-3.7-sonnet"
+export ANTHROPIC_DEFAULT_SONNET_MODEL="anthropic/claude-3.7-sonnet"
+export ANTHROPIC_DEFAULT_OPUS_MODEL="anthropic/claude-3.7-sonnet"
+export CLAUDE_CODE_MAX_CONTEXT_TOKENS="200000"
 ```
