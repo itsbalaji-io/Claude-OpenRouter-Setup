@@ -52,8 +52,11 @@ This setup tool automates prerequisite detection (Node.js LTS, Claude Code CLI),
 
 ```text
 Claude-OpenRouter-Setup/
-├── setup.bat           # 1-Click Windows batch launcher
-├── setup.sh            # 1-Click macOS & Linux bash launcher
+├── install.cmd         # 1-Line Windows Command Prompt installer
+├── install.ps1         # 1-Line Windows PowerShell installer
+├── install.sh          # 1-Line macOS & Linux installer
+├── setup.bat           # Windows launcher
+├── setup.sh            # macOS & Linux launcher
 ├── main.py             # Main entry point & interactive TUI engine
 ├── tui.py              # Zero-dependency terminal UI, arrows, spinners & formatting
 ├── profiles.py         # Multi-model profiles & context window presets
@@ -73,26 +76,44 @@ Claude-OpenRouter-Setup/
 
 ---
 
-## Quickstart
+## ⚡ 1-Line Quick Install
+
+### Windows (Command Prompt / CMD)
+```cmd
+curl -fsSL https://raw.githubusercontent.com/itsbalaji-io/Claude-OpenRouter-Setup/main/install.cmd -o install.cmd && install.cmd && del install.cmd
+```
+
+### Windows (PowerShell)
+```powershell
+irm https://raw.githubusercontent.com/itsbalaji-io/Claude-OpenRouter-Setup/main/install.ps1 | iex
+```
+
+### macOS & Linux (Terminal)
+```bash
+curl -fsSL https://raw.githubusercontent.com/itsbalaji-io/Claude-OpenRouter-Setup/main/install.sh | bash
+```
+
+> **Global command created**: After the 1-line install, you can reopen the interactive setup anytime from any terminal window simply by running:
+> ```bash
+> claude-setup
+> ```
+
+---
+
+## Manual Launch (From Cloned Repository)
 
 ### On Windows
-Run `setup.bat`:
 ```cmd
 setup.bat
 ```
-- Auto-detects Python. If missing, it downloads official portable Python 3.12.
-- Launches the interactive TUI menu.
 
 ### On macOS / Linux
-Run `setup.sh`:
 ```bash
 chmod +x setup.sh
 ./setup.sh
 ```
-- Auto-detects Python 3.10+ (or installs via `brew`, `apt`, `dnf`, or `pacman`).
-- Launches the interactive TUI menu.
 
-### Manual Python Launch
+### Direct Python Run
 ```bash
 python main.py
 ```
