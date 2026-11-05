@@ -18,7 +18,6 @@ from unittest.mock import patch, MagicMock
 import config
 import openrouter
 import installer
-import profiles
 import tracker
 import tui
 
@@ -134,52 +133,6 @@ class TestOpenRouterClient(unittest.TestCase):
         model_ids = [m["id"] for m in models]
         self.assertIn("recursive/flint-v1.0:free", model_ids)
         self.assertNotIn("anthropic/claude-3.5-sonnet", model_ids)
-
-
-class TestProfilesModule(unittest.TestCase):
-    def setUp(self):
-        self.temp_dir = tempfile.TemporaryDirectory()
-        self.mock_file = os.path.join(self.temp_dir.name, "test_profiles.json")
-        self.orig_file = profiles.PROFILES_FILE
-        profiles.PROFILES_FILE = self.mock_file
-
-    def tearDown(self):
-        profiles.PROFILES_FILE = self.orig_file
-        self.temp_dir.cleanup()
-
-    def test_profile_creation_and_switching(self):
-        # 1. Load initial default presets
-        data = profiles.load_profiles_data()
-        self.assertIn("flint-free", data["profiles"])
-
-        # 2. Create custom profile
-        ok, msg = profiles.create_or_update_profile(
-            name="test-sonnet",
-            model="anthropic/claude-3.7-sonnet",
-            context_tokens=200000,
-            description="Test profile",
-            activate=False,
-        )
-        self.assertTrue(ok)
-
-        # 3. List profiles
-        profs = profiles.list_profiles()
-        names = [p["name"] for p in profs]
-        self.assertIn("test-sonnet", names)
-
-        # 4. Activate profile
-        with patch("config.update_model") as mock_update_model:
-            ok, msg = profiles.set_active_profile("test-sonnet")
-            self.assertTrue(ok)
-            active_name, active_prof = profiles.get_active_profile()
-            self.assertEqual(active_name, "test-sonnet")
-            self.assertEqual(active_prof["model"], "anthropic/claude-3.7-sonnet")
-            mock_update_model.assert_called_with("anthropic/claude-3.7-sonnet", context_tokens=200000)
-
-        # 5. Delete profile
-        ok, msg = profiles.delete_profile("test-sonnet")
-        self.assertTrue(ok)
-        self.assertNotIn("test-sonnet", profiles.load_profiles_data()["profiles"])
 
 
 class TestTrackerModule(unittest.TestCase):

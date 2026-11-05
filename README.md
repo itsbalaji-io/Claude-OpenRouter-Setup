@@ -120,17 +120,16 @@ Claude-OpenRouter-Setup/
 ├── setup.sh            # macOS & Linux launcher
 ├── main.py             # Main entry point & interactive TUI engine
 ├── tui.py              # Zero-dependency terminal UI, arrows, spinners & formatting
-├── profiles.py         # Multi-model profiles & context window presets
 ├── tracker.py          # OpenRouter live credit & local token usage telemetry
 ├── config.py           # Cross-platform environment variable manager
 ├── installer.py        # System diagnostics and installer (winget / brew / apt / npm)
 ├── openrouter.py       # OpenRouter REST API client & model validator
 ├── verifier.py         # End-to-end integration verification suite
-├── test_setup.py       # Unit test suite (12 tests)
+├── test_setup.py       # Unit test suite
 ├── requirements.txt    # Optional dependencies
 ├── .env.example        # Safe placeholder template
 ├── .gitignore          # Version control ignore rules
-├── CHANGE_MODEL.md     # Quick guide for profiles and switching
+├── CHANGE_MODEL.md     # Quick guide for free model switching
 ├── LICENSE             # MIT License
 └── README.md           # Documentation
 ```
