@@ -313,7 +313,7 @@ def install_nodejs() -> Tuple[bool, str]:
         cmd = ["winget", "install", "--id", "OpenJS.NodeJS.LTS", "--exact",
                "--accept-source-agreements", "--accept-package-agreements", "--silent"]
         try:
-            res = subprocess.run(cmd, capture_output=True, text=True, timeout=300)
+            res = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=300)
             if res.returncode == 0:
                 ok, path, ver = detect_nodejs()
                 if ok and path:
@@ -325,7 +325,7 @@ def install_nodejs() -> Tuple[bool, str]:
 
     if is_macos() and _has_brew():
         try:
-            res = subprocess.run(["brew", "install", "node"], capture_output=True, text=True, timeout=300)
+            res = subprocess.run(["brew", "install", "node"], capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=300)
             if res.returncode == 0:
                 ok, path, ver = detect_nodejs()
                 if ok:
@@ -341,7 +341,7 @@ def install_nodejs() -> Tuple[bool, str]:
         ]:
             if shutil.which(pm):
                 try:
-                    res = subprocess.run(" ".join(pm_args), shell=True, capture_output=True, timeout=300)
+                    res = subprocess.run(" ".join(pm_args), shell=True, capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=300)
                     if res.returncode == 0:
                         ok, path, ver = detect_nodejs()
                         if ok:
@@ -388,7 +388,7 @@ def install_claude_code() -> Tuple[bool, str]:
         try:
             res = subprocess.run(
                 ["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", ps_cmd],
-                capture_output=True, text=True, timeout=300
+                capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=300
             )
             if res.returncode == 0:
                 ok, path, ver = detect_claude_code()
@@ -401,7 +401,7 @@ def install_claude_code() -> Tuple[bool, str]:
     else:
         sh_cmd = "curl -fsSL https://claude.ai/install.sh | bash"
         try:
-            res = subprocess.run(sh_cmd, shell=True, capture_output=True, text=True, timeout=300)
+            res = subprocess.run(sh_cmd, shell=True, capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=300)
             if res.returncode == 0:
                 ok, path, ver = detect_claude_code()
                 if ok and path:
@@ -413,7 +413,7 @@ def install_claude_code() -> Tuple[bool, str]:
         cmd = ["winget", "install", "--id", "Anthropic.ClaudeCode", "--exact",
                "--accept-source-agreements", "--accept-package-agreements", "--silent"]
         try:
-            res = subprocess.run(cmd, capture_output=True, text=True, timeout=300)
+            res = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=300)
             if res.returncode == 0:
                 ok, path, ver = detect_claude_code()
                 if ok and path:
@@ -427,7 +427,7 @@ def install_claude_code() -> Tuple[bool, str]:
     if npm_ok and npm_exe:
         cmd = [npm_exe, "install", "-g", "@anthropic-ai/claude-code"]
         try:
-            res = subprocess.run(cmd, capture_output=True, text=True, timeout=300)
+            res = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=300)
             if res.returncode == 0:
                 ok, path, ver = detect_claude_code()
                 if ok and path:
