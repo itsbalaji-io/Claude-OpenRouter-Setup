@@ -11,6 +11,9 @@ import time
 import json
 import urllib.request
 import urllib.error
+import ssl
+import sys
+import subprocess
 from typing import Dict, List, Optional, Tuple, Any
 
 OPENROUTER_AUTH_URL = "https://openrouter.ai/api/v1/auth/key"
@@ -18,12 +21,10 @@ OPENROUTER_MODELS_URL = "https://openrouter.ai/api/v1/models"
 OPENROUTER_MESSAGES_URL = "https://openrouter.ai/api/v1/messages"
 
 
-def repair_windows_sandbox_dns() -> bool:
+def _repair_windows_dns() -> bool:
     """Attempt to configure Google DNS (8.8.8.8, 1.1.1.1) on active network adapters on Windows."""
-    import sys
     if sys.platform != "win32":
         return False
-    import subprocess
     try:
         cmd = [
             "powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-Command",
@@ -35,9 +36,8 @@ def repair_windows_sandbox_dns() -> bool:
         return False
 
 
-def _get_ssl_context():
+def _ssl_context() -> ssl.SSLContext:
     """Create an SSL context using system root certificates."""
-    import ssl
     ctx = ssl.create_default_context()
     try:
         ctx.load_default_certs(ssl.Purpose.SERVER_AUTH)
@@ -47,11 +47,11 @@ def _get_ssl_context():
 
 
 def _make_request(url: str, headers: Dict[str, str], data: Optional[bytes] = None, timeout: int = 15) -> Tuple[int, Any]:
-    """Helper to perform HTTP requests using standard library urllib."""
+    """Perform HTTP request using standard library urllib."""
     req = urllib.request.Request(url, data=data, headers=headers)
-    ssl_ctx = _get_ssl_context()
+    ctx = _ssl_context()
     try:
-        with urllib.request.urlopen(req, timeout=timeout, context=ssl_ctx) as resp:
+        with urllib.request.urlopen(req, timeout=timeout, context=ctx) as resp:
             body = resp.read().decode("utf-8", errors="replace")
             try:
                 return resp.status, json.loads(body)
@@ -67,9 +67,9 @@ def _make_request(url: str, headers: Dict[str, str], data: Optional[bytes] = Non
     except urllib.error.URLError as e:
         err_str = str(e.reason)
         if "11001" in err_str or "getaddrinfo" in err_str.lower():
-            if repair_windows_sandbox_dns():
+            if _repair_windows_dns():
                 try:
-                    with urllib.request.urlopen(req, timeout=timeout, context=ssl_ctx) as resp:
+                    with urllib.request.urlopen(req, timeout=timeout, context=ctx) as resp:
                         body = resp.read().decode("utf-8", errors="replace")
                         try:
                             return resp.status, json.loads(body)
@@ -180,7 +180,6 @@ def test_inference(api_key: str, model_id: str, prompt: str = "Say hello in one 
                 thinking += block.get("thinking", "")
         output = text.strip() if text.strip() else (f"[Reasoning output generated: {thinking[:60]}...]" if thinking else "[Response received]")
 
-        # Extract token usage and record event
         usage = res.get("usage", {})
         prompt_tokens = usage.get("input_tokens", 0)
         completion_tokens = usage.get("output_tokens", 0)

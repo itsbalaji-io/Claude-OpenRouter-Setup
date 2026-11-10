@@ -12,26 +12,25 @@ import sys
 import shutil
 import platform
 import subprocess
+import tempfile
+import zipfile
+import ssl
 from typing import Dict, Optional, Tuple, List
 
 
 def is_windows() -> bool:
-    """Return True if running on Windows."""
     return sys.platform == "win32"
 
 
 def is_macos() -> bool:
-    """Return True if running on macOS."""
     return sys.platform == "darwin"
 
 
 def is_linux() -> bool:
-    """Return True if running on Linux."""
     return sys.platform.startswith("linux")
 
 
 def is_admin() -> bool:
-    """Check if current process has elevated privileges (Admin / root)."""
     if is_windows():
         try:
             import ctypes
@@ -46,7 +45,6 @@ def is_admin() -> bool:
 
 
 def get_system_info() -> Dict[str, str]:
-    """Return system OS and platform diagnostics."""
     return {
         "platform": platform.platform(),
         "system": platform.system(),
@@ -58,18 +56,13 @@ def get_system_info() -> Dict[str, str]:
 
 
 def get_powershell_version() -> Optional[str]:
-    """Retrieve installed PowerShell version if available (Windows/Core)."""
     exe = shutil.which("powershell") or shutil.which("pwsh")
     if not exe:
         return None
     try:
         res = subprocess.run(
             [exe, "-NoProfile", "-Command", "$PSVersionTable.PSVersion.ToString()"],
-            capture_output=True,
-            text=True,
-            encoding="utf-8",
-            errors="replace",
-            timeout=10,
+            capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=10
         )
         if res.returncode == 0 and res.stdout.strip():
             return res.stdout.strip()
@@ -78,7 +71,7 @@ def get_powershell_version() -> Optional[str]:
     return None
 
 
-def get_active_and_registry_path() -> str:
+def _get_search_paths() -> str:
     """Combine current process PATH with system paths."""
     paths = [os.environ.get("PATH", "")]
     if is_windows():
@@ -97,21 +90,16 @@ def get_active_and_registry_path() -> str:
         except ImportError:
             pass
     else:
-        # Standard Unix paths
         home = os.path.expanduser("~")
         paths.extend([
             os.path.join(home, ".local", "bin"),
-            "/usr/local/bin",
-            "/opt/homebrew/bin",
-            "/usr/bin",
-            "/bin",
+            "/usr/local/bin", "/opt/homebrew/bin", "/usr/bin", "/bin",
         ])
     return os.pathsep.join(paths)
 
 
 def find_executable(name: str, candidate_paths: Optional[List[str]] = None) -> Optional[str]:
-    """Locate an executable searching PATH, registry PATHs, and candidate directories."""
-    combined_path = get_active_and_registry_path()
+    combined_path = _get_search_paths()
     found = shutil.which(name, path=combined_path)
     if found and os.path.exists(found):
         return os.path.abspath(found)
@@ -125,7 +113,6 @@ def find_executable(name: str, candidate_paths: Optional[List[str]] = None) -> O
 
 
 def detect_python() -> Tuple[bool, str]:
-    """Verify current Python version is 3.10+."""
     ver = sys.version_info
     ver_str = f"{ver.major}.{ver.minor}.{ver.micro}"
     if ver.major == 3 and ver.minor >= 10:
@@ -134,36 +121,19 @@ def detect_python() -> Tuple[bool, str]:
 
 
 def detect_nodejs() -> Tuple[bool, Optional[str], Optional[str]]:
-    """Detect Node.js executable and version."""
-    candidates = []
-    if is_windows():
-        candidates = [
-            r"C:\Program Files\nodejs\node.exe",
-            r"C:\Program Files (x86)\nodejs\node.exe",
-            r"%LOCALAPPDATA%\Programs\node\node.exe",
-            r"%LOCALAPPDATA%\Programs\nodejs\node.exe",
-        ]
-    else:
-        candidates = [
-            "/usr/local/bin/node",
-            "/opt/homebrew/bin/node",
-            "/usr/bin/node",
-            os.path.expanduser("~/.nvm/versions/node/*/bin/node"),
-        ]
-
+    candidates = (
+        [r"C:\Program Files\nodejs\node.exe", r"C:\Program Files (x86)\nodejs\node.exe",
+         r"%LOCALAPPDATA%\Programs\node\node.exe", r"%LOCALAPPDATA%\Programs\nodejs\node.exe"]
+        if is_windows() else
+        ["/usr/local/bin/node", "/opt/homebrew/bin/node", "/usr/bin/node",
+         os.path.expanduser("~/.nvm/versions/node/*/bin/node")]
+    )
     node_exe = find_executable("node", candidates)
     if not node_exe:
         return False, None, None
-
     try:
-        res = subprocess.run(
-            [node_exe, "-v"],
-            capture_output=True,
-            text=True,
-            encoding="utf-8",
-            errors="replace",
-            timeout=10,
-        )
+        res = subprocess.run([node_exe, "-v"], capture_output=True, text=True,
+                             encoding="utf-8", errors="replace", timeout=10)
         if res.returncode == 0:
             return True, node_exe, res.stdout.strip()
     except Exception:
@@ -172,35 +142,18 @@ def detect_nodejs() -> Tuple[bool, Optional[str], Optional[str]]:
 
 
 def detect_npm() -> Tuple[bool, Optional[str], Optional[str]]:
-    """Detect npm executable and version."""
-    candidates = []
-    if is_windows():
-        candidates = [
-            r"C:\Program Files\nodejs\npm.cmd",
-            r"C:\Program Files (x86)\nodejs\npm.cmd",
-            r"%APPDATA%\npm\npm.cmd",
-            r"%LOCALAPPDATA%\Programs\nodejs\npm.cmd",
-        ]
-    else:
-        candidates = [
-            "/usr/local/bin/npm",
-            "/opt/homebrew/bin/npm",
-            "/usr/bin/npm",
-        ]
-
+    candidates = (
+        [r"C:\Program Files\nodejs\npm.cmd", r"C:\Program Files (x86)\nodejs\npm.cmd",
+         r"%APPDATA%\npm\npm.cmd", r"%LOCALAPPDATA%\Programs\nodejs\npm.cmd"]
+        if is_windows() else
+        ["/usr/local/bin/npm", "/opt/homebrew/bin/npm", "/usr/bin/npm"]
+    )
     npm_exe = find_executable("npm.cmd", candidates) or find_executable("npm", candidates)
     if not npm_exe:
         return False, None, None
-
     try:
-        res = subprocess.run(
-            [npm_exe, "-v"],
-            capture_output=True,
-            text=True,
-            encoding="utf-8",
-            errors="replace",
-            timeout=10,
-        )
+        res = subprocess.run([npm_exe, "-v"], capture_output=True, text=True,
+                             encoding="utf-8", errors="replace", timeout=10)
         if res.returncode == 0:
             return True, npm_exe, res.stdout.strip()
     except Exception:
@@ -209,19 +162,16 @@ def detect_npm() -> Tuple[bool, Optional[str], Optional[str]]:
 
 
 def add_directory_to_path(target_dir: str) -> bool:
-    """Permanently register a directory in the user PATH across OSes."""
     target_dir = os.path.abspath(os.path.expanduser(os.path.expandvars(target_dir)))
     if not os.path.isdir(target_dir):
         return False
 
-    # 1. Update active process PATH
     current_path = os.environ.get("PATH", "")
     sep = ";" if is_windows() else ":"
     parts = [p for p in current_path.split(sep) if p]
     if target_dir not in parts:
         os.environ["PATH"] = f"{target_dir}{sep}{current_path}"
 
-    # 2. Windows registry
     if is_windows():
         try:
             import winreg
@@ -240,7 +190,6 @@ def add_directory_to_path(target_dir: str) -> bool:
         except Exception:
             return False
 
-    # 3. macOS / Linux shell rc
     home = os.path.expanduser("~")
     export_line = f'export PATH="{target_dir}:$PATH"\n'
     for rc in [os.path.join(home, ".bashrc"), os.path.join(home, ".zshrc"), os.path.join(home, ".profile")]:
@@ -257,7 +206,6 @@ def add_directory_to_path(target_dir: str) -> bool:
 
 
 def create_global_shim(name: str, target_exe: str) -> bool:
-    """Create a command launcher shim or symlink for global terminal execution."""
     target_exe = os.path.abspath(os.path.expanduser(os.path.expandvars(target_exe)))
     if not os.path.exists(target_exe):
         return False
@@ -283,7 +231,6 @@ def create_global_shim(name: str, target_exe: str) -> bool:
                 pass
         return False
     else:
-        # Unix symlink
         for bin_dir in [os.path.expanduser("~/.local/bin"), "/usr/local/bin"]:
             if os.path.isdir(bin_dir) and os.access(bin_dir, os.W_OK):
                 link_path = os.path.join(bin_dir, name)
@@ -298,25 +245,16 @@ def create_global_shim(name: str, target_exe: str) -> bool:
 
 
 def detect_claude_code() -> Tuple[bool, Optional[str], Optional[str]]:
-    """Detect Anthropic Claude Code CLI executable and version."""
-    candidates = []
-    if is_windows():
-        candidates = [
-            r"%USERPROFILE%\.local\bin\claude.exe",
-            r"%LOCALAPPDATA%\Microsoft\WinGet\Links\claude.exe",
-            r"%LOCALAPPDATA%\Microsoft\WinGet\Packages\Anthropic.ClaudeCode_Microsoft.Winget.Source_8wekyb3d8bbwe\claude.exe",
-            r"%APPDATA%\npm\claude.cmd",
-            r"C:\Program Files\nodejs\claude.cmd",
-            r"%LOCALAPPDATA%\Programs\nodejs\claude.cmd",
-        ]
-    else:
-        candidates = [
-            os.path.expanduser("~/.local/bin/claude"),
-            os.path.expanduser("~/.claude/bin/claude"),
-            "/usr/local/bin/claude",
-            "/opt/homebrew/bin/claude",
-        ]
-
+    candidates = (
+        [r"%USERPROFILE%\.local\bin\claude.exe",
+         r"%LOCALAPPDATA%\Microsoft\WinGet\Links\claude.exe",
+         r"%LOCALAPPDATA%\Microsoft\WinGet\Packages\Anthropic.ClaudeCode_Microsoft.Winget.Source_8wekyb3d8bbwe\claude.exe",
+         r"%APPDATA%\npm\claude.cmd", r"C:\Program Files\nodejs\claude.cmd",
+         r"%LOCALAPPDATA%\Programs\nodejs\claude.cmd"]
+        if is_windows() else
+        [os.path.expanduser("~/.local/bin/claude"), os.path.expanduser("~/.claude/bin/claude"),
+         "/usr/local/bin/claude", "/opt/homebrew/bin/claude"]
+    )
     claude_exe = find_executable("claude.exe", candidates) or find_executable("claude", candidates)
     if not claude_exe:
         return False, None, None
@@ -326,12 +264,8 @@ def detect_claude_code() -> Tuple[bool, Optional[str], Optional[str]]:
 
     try:
         res = subprocess.run(
-            [claude_exe, "--version"],
-            capture_output=True,
-            text=True,
-            encoding="utf-8",
-            errors="replace",
-            timeout=15,
+            [claude_exe, "--version"], capture_output=True, text=True,
+            encoding="utf-8", errors="replace", timeout=15
         )
         if res.returncode == 0:
             return True, claude_exe, res.stdout.strip()
@@ -340,19 +274,15 @@ def detect_claude_code() -> Tuple[bool, Optional[str], Optional[str]]:
     return True, claude_exe, "[Installed, version pending]"
 
 
-def has_winget() -> bool:
-    """Check if winget.exe is available (Windows)."""
+def _has_winget() -> bool:
     return is_windows() and find_executable("winget.exe") is not None
 
 
-def has_brew() -> bool:
-    """Check if Homebrew is available (macOS/Linux)."""
+def _has_brew() -> bool:
     return find_executable("brew") is not None
 
 
-def download_file_securely(url: str, dest_path: str, timeout: int = 180) -> bool:
-    """Download a file securely with system TLS root certificates."""
-    # Method 1: curl
+def _download_file(url: str, dest_path: str, timeout: int = 180) -> bool:
     curl_exe = shutil.which("curl.exe") or shutil.which("curl")
     if curl_exe:
         try:
@@ -362,10 +292,8 @@ def download_file_securely(url: str, dest_path: str, timeout: int = 180) -> bool
         except Exception:
             pass
 
-    # Method 2: Python urllib
     try:
         import urllib.request
-        import ssl
         ctx = ssl.create_default_context()
         try:
             ctx.load_default_certs(ssl.Purpose.SERVER_AUTH)
@@ -377,22 +305,13 @@ def download_file_securely(url: str, dest_path: str, timeout: int = 180) -> bool
         return os.path.isfile(dest_path) and os.path.getsize(dest_path) > 1000
     except Exception:
         pass
-
     return False
 
 
 def install_nodejs() -> Tuple[bool, str]:
-    """Install Node.js LTS and npm across Windows, macOS, or Linux."""
-    # 1. Windows winget
-    if has_winget():
-        cmd = [
-            "winget", "install",
-            "--id", "OpenJS.NodeJS.LTS",
-            "--exact",
-            "--accept-source-agreements",
-            "--accept-package-agreements",
-            "--silent",
-        ]
+    if _has_winget():
+        cmd = ["winget", "install", "--id", "OpenJS.NodeJS.LTS", "--exact",
+               "--accept-source-agreements", "--accept-package-agreements", "--silent"]
         try:
             res = subprocess.run(cmd, capture_output=True, text=True, timeout=300)
             if res.returncode == 0:
@@ -404,8 +323,7 @@ def install_nodejs() -> Tuple[bool, str]:
         except Exception:
             pass
 
-    # 2. macOS Homebrew
-    if is_macos() and has_brew():
+    if is_macos() and _has_brew():
         try:
             res = subprocess.run(["brew", "install", "node"], capture_output=True, text=True, timeout=300)
             if res.returncode == 0:
@@ -415,7 +333,6 @@ def install_nodejs() -> Tuple[bool, str]:
         except Exception:
             pass
 
-    # 3. Linux package managers
     if is_linux():
         for pm, pm_args in [
             ("apt", ["sudo", "apt", "update", "-y", "&&", "sudo", "apt", "install", "-y", "nodejs", "npm"]),
@@ -432,16 +349,13 @@ def install_nodejs() -> Tuple[bool, str]:
                 except Exception:
                     pass
 
-    # 4. Windows Portable zip fallback
     if is_windows():
         try:
-            import zipfile
-            import tempfile
             target_dir = os.path.expandvars(r"%LOCALAPPDATA%\Programs\nodejs")
             os.makedirs(target_dir, exist_ok=True)
             zip_url = "https://nodejs.org/dist/v26.13.0/node-v26.13.0-win-x64.zip"
             temp_zip = os.path.join(tempfile.gettempdir(), "node-portable.zip")
-            if download_file_securely(zip_url, temp_zip, timeout=180):
+            if _download_file(zip_url, temp_zip, timeout=180):
                 with zipfile.ZipFile(temp_zip, "r") as z:
                     for member in z.infolist():
                         parts = member.filename.split("/", 1)
@@ -469,16 +383,12 @@ def install_nodejs() -> Tuple[bool, str]:
 
 
 def install_claude_code() -> Tuple[bool, str]:
-    """Install Claude Code using native installer, winget, or npm."""
-    # Method 1: Official native installer
     if is_windows():
         ps_cmd = 'irm https://claude.ai/install.ps1 | iex'
         try:
             res = subprocess.run(
                 ["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", ps_cmd],
-                capture_output=True,
-                text=True,
-                timeout=300,
+                capture_output=True, text=True, timeout=300
             )
             if res.returncode == 0:
                 ok, path, ver = detect_claude_code()
@@ -489,7 +399,6 @@ def install_claude_code() -> Tuple[bool, str]:
         except Exception:
             pass
     else:
-        # Unix official curl installer
         sh_cmd = "curl -fsSL https://claude.ai/install.sh | bash"
         try:
             res = subprocess.run(sh_cmd, shell=True, capture_output=True, text=True, timeout=300)
@@ -500,16 +409,9 @@ def install_claude_code() -> Tuple[bool, str]:
         except Exception:
             pass
 
-    # Method 2: WinGet (Windows)
-    if has_winget():
-        cmd = [
-            "winget", "install",
-            "--id", "Anthropic.ClaudeCode",
-            "--exact",
-            "--accept-source-agreements",
-            "--accept-package-agreements",
-            "--silent",
-        ]
+    if _has_winget():
+        cmd = ["winget", "install", "--id", "Anthropic.ClaudeCode", "--exact",
+               "--accept-source-agreements", "--accept-package-agreements", "--silent"]
         try:
             res = subprocess.run(cmd, capture_output=True, text=True, timeout=300)
             if res.returncode == 0:
@@ -521,7 +423,6 @@ def install_claude_code() -> Tuple[bool, str]:
         except Exception:
             pass
 
-    # Method 3: npm global install
     npm_ok, npm_exe, _ = detect_npm()
     if npm_ok and npm_exe:
         cmd = [npm_exe, "install", "-g", "@anthropic-ai/claude-code"]
