@@ -23,6 +23,7 @@ from config import (
     get_display_status,
     repair_environment,
     get_current_configuration,
+    get_clipboard_text,
     DEFAULT_MODEL,
 )
 from installer import (
