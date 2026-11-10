@@ -16,7 +16,6 @@ if SCRIPT_DIR not in sys.path:
 from config import (
     mask_key,
     clean_api_key,
-    get_clipboard_text,
     validate_key_format,
     apply_openrouter_config,
     update_model,
@@ -25,12 +24,8 @@ from config import (
     repair_environment,
     get_current_configuration,
     DEFAULT_MODEL,
-    DEFAULT_CONTEXT_TOKENS,
 )
 from installer import (
-    is_windows,
-    is_macos,
-    is_linux,
     is_admin,
     get_system_info,
     get_powershell_version,
@@ -44,10 +39,8 @@ from installer import (
 from openrouter import (
     validate_api_key,
     fetch_models,
-    validate_model,
-    test_inference,
 )
-from verifier import run_full_verification, run_claude_inference_test
+from verifier import run_full_verification
 from tracker import (
     fetch_openrouter_account_stats,
     get_local_usage_summary,
@@ -134,7 +127,6 @@ TOP_FREE_MODELS: List[Dict[str, Any]] = [
 
 
 def print_system_diagnostics():
-    """Display OS, Python, and prerequisites diagnostics in a formatted card."""
     sys_info = get_system_info()
     ps_ver = get_powershell_version()
     admin = is_admin()
@@ -159,7 +151,6 @@ def print_system_diagnostics():
 
 
 def menu_install_or_repair_claude():
-    """Option 1: Install or repair Node.js and Claude Code."""
     clear_screen()
     print_banner()
     print_info("Checking prerequisites for Claude Code CLI...")
@@ -198,7 +189,6 @@ def menu_install_or_repair_claude():
 
 
 def prompt_user_api_key() -> Optional[str]:
-    """Prompt for API key with clipboard auto-detection across OSes."""
     clip_text = get_clipboard_text()
     if clip_text:
         candidate = clean_api_key(clip_text)
@@ -215,7 +205,6 @@ def prompt_user_api_key() -> Optional[str]:
 
 
 def menu_configure_api_key():
-    """Option 2: Configure OpenRouter API key securely."""
     clear_screen()
     print_banner()
     print_info("Configure OpenRouter API Key")
@@ -251,31 +240,26 @@ def menu_configure_api_key():
 
 
 def menu_switch_model():
-    """Option 3: Switch Model (Curated & Live Free Models Only)."""
     cfg = get_current_configuration()
     current_model = cfg.get("ANTHROPIC_MODEL", DEFAULT_MODEL)
 
-    # Fetch live free models from OpenRouter
     live_models: List[Dict[str, Any]] = []
     ok, fetched, _ = fetch_models(free_only=True)
     if ok and fetched:
         live_models = fetched
 
-    # Merge curated models with live models (avoiding duplicates)
     known_ids = set()
     model_choices: List[Dict[str, Any]] = []
 
     for m in TOP_FREE_MODELS:
         m_id = m["id"]
         known_ids.add(m_id)
-        # Check if live data provides a more accurate context length
         for lm in live_models:
             if lm.get("id") == m_id:
                 m["context_length"] = lm.get("context_length", m["context_length"])
                 break
         model_choices.append(m)
 
-    # Add any newly discovered live free models
     for lm in live_models:
         lm_id = lm.get("id", "")
         if lm_id and lm_id not in known_ids and ":free" in lm_id:
@@ -287,7 +271,6 @@ def menu_switch_model():
                 "desc": f"Live free model ({lm.get('context_length', 200000):,} tokens)",
             })
 
-    # Prepare menu options
     options: List[Dict[str, str]] = []
     for m in model_choices:
         is_curr = (m["id"] == current_model)
@@ -316,7 +299,6 @@ def menu_switch_model():
     if choice is None or choice == len(options) - 1:
         return
 
-    # Custom model entry
     if choice == len(options) - 2:
         custom_id = prompt_text("Enter OpenRouter Model ID (must end in :free)")
         if not custom_id:
@@ -331,7 +313,6 @@ def menu_switch_model():
         input("\nPress Enter to return...")
         return
 
-    # Curated / Live selection
     selected_m = model_choices[choice]
     sel_id = selected_m["id"]
     sel_ctx = selected_m.get("context_length", 262144)
@@ -346,7 +327,6 @@ def menu_switch_model():
 
 
 def menu_token_usage_tracker():
-    """Option 4: View live OpenRouter credit usage and local session telemetry."""
     clear_screen()
     print_banner()
     cfg = get_current_configuration()
@@ -361,7 +341,6 @@ def menu_token_usage_tracker():
 
     summary = get_local_usage_summary()
 
-    # OpenRouter Account Card
     if live_stats:
         limit_str = f"${live_stats['limit']:.2f}" if live_stats["limit"] is not None else "Unlimited / Post-paid"
         items = [
@@ -376,7 +355,6 @@ def menu_token_usage_tracker():
     else:
         print_card("OpenRouter Live Account Status", [("Status", "API key missing or endpoint unreachable", "warn")])
 
-    # Local telemetry card
     loc_items = [
         ("Total Local Tests", str(summary["total_requests"]), "info"),
         ("Total Tokens Estimated", f"{summary['total_tokens']:,}", "ok" if summary["total_tokens"] > 0 else "info"),
@@ -397,7 +375,6 @@ def menu_token_usage_tracker():
 
 
 def menu_test_connection():
-    """Option 5: Test OpenRouter connection and Claude CLI execution."""
     clear_screen()
     print_banner()
     print_info("Running dual inference verification suite...")
@@ -426,8 +403,7 @@ def menu_test_connection():
     input("\nPress Enter to return to menu...")
 
 
-def menu_display_status():
-    """Option 6: Display current configuration status."""
+def menu_display_status(wait: bool = True):
     clear_screen()
     print_banner()
     status = get_display_status()
@@ -444,11 +420,11 @@ def menu_display_status():
         ("Direct ANTHROPIC_KEY", status.get("ANTHROPIC_API_KEY", "[Cleared]"), "ok"),
     ]
     print_card("Current User Environment Configuration", items)
-    input("\nPress Enter to return to menu...")
+    if wait:
+        input("\nPress Enter to return to menu...")
 
 
 def menu_repair_environment():
-    """Option 7: Audit and repair inconsistent environment variables."""
     clear_screen()
     print_banner()
     print_info("Auditing environment variables for drift or conflicts...")
@@ -463,30 +439,24 @@ def menu_repair_environment():
 
 
 def run_guided_setup():
-    """Option 0: Full step-by-step guided setup."""
     clear_screen()
     print_banner()
     print_info("Starting Full Guided Setup for Claude Code + OpenRouter...")
     print_system_diagnostics()
 
-    # Step 1: Check / Install Claude Code
     claude_ok, _, _ = detect_claude_code()
     if not claude_ok:
         menu_install_or_repair_claude()
     else:
         print_success("Claude Code CLI is installed.")
 
-    # Step 2: Configure API Key
     cfg = get_current_configuration()
     if not cfg.get("OPENROUTER_API_KEY"):
         menu_configure_api_key()
     else:
         print_success(f"OpenRouter API key is already configured: {mask_key(cfg.get('OPENROUTER_API_KEY'))}")
 
-    # Step 3: Choose Free Model
     menu_switch_model()
-
-    # Step 4: Verification test
     menu_test_connection()
 
 
@@ -500,9 +470,8 @@ def main():
     parser.add_argument("--no-tui", action="store_true", help="Force classic CLI prompt mode")
     args = parser.parse_args()
 
-    # CLI flag operations
     if args.status:
-        menu_display_status()
+        menu_display_status(wait=False)
         return
 
     if args.verify:
@@ -524,7 +493,6 @@ def main():
         print(f"Total requests: {s['total_requests']}, Total tokens: {s['total_tokens']}")
         return
 
-    # Interactive Main Loop
     while True:
         cfg = get_current_configuration()
         key_masked = mask_key(cfg.get("OPENROUTER_API_KEY"))
