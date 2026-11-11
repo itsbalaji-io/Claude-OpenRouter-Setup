@@ -37,7 +37,7 @@ curl -fsSL https://raw.githubusercontent.com/itsbalaji-io/Claude-OpenRouter-Setu
 
 ## Overview
 
-Claude Code CLI uses the Anthropic Messages API. By configuring custom environment variables (`ANTHROPIC_BASE_URL` and `ANTHROPIC_AUTH_TOKEN`), Claude Code routes requests to OpenRouter's Anthropic-compatible gateway (`https://openrouter.ai/api/messages`), enabling you to use OpenRouter's diverse model catalogue, including free models like `recursive/flint-v1.0:free`, `deepseek/deepseek-r1:free`, or flagship models like `anthropic/claude-3.7-sonnet` and `deepseek/deepseek-chat`.
+Claude Code CLI uses the Anthropic Messages API. By configuring custom environment variables (`ANTHROPIC_BASE_URL` and `ANTHROPIC_AUTH_TOKEN`), Claude Code routes requests to OpenRouter's Anthropic-compatible gateway (`https://openrouter.ai/api/v1/messages`), enabling you to use OpenRouter's diverse model catalogue, including free models like `recursive/flint-v1.0:free`, `deepseek/deepseek-r1:free`, or flagship models like `anthropic/claude-3.7-sonnet` and `deepseek/deepseek-chat`.
 
 This tool automates:
 1. **Prerequisite detection & installation** (Node.js LTS, npm, and Claude Code CLI).
