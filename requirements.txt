@@ -1,0 +1,5 @@
+# Optional dependencies for Claude Code + OpenRouter Setup
+# Pinned at daily-maintenance 2026-11-12 upstream check
+
+requests==2.34.2
+keyring==25.7.0
