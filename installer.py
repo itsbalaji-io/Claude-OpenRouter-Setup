@@ -353,7 +353,7 @@ def install_nodejs() -> Tuple[bool, str]:
         try:
             target_dir = os.path.expandvars(r"%LOCALAPPDATA%\Programs\nodejs")
             os.makedirs(target_dir, exist_ok=True)
-            zip_url = "https://nodejs.org/dist/v26.13.0/node-v26.13.0-win-x64.zip"
+            zip_url = "https://nodejs.org/dist/v26.13.1/node-v26.13.1-win-x64.zip"
             temp_zip = os.path.join(tempfile.gettempdir(), "node-portable.zip")
             if _download_file(zip_url, temp_zip, timeout=180):
                 with zipfile.ZipFile(temp_zip, "r") as z:
