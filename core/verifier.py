@@ -13,9 +13,9 @@ import tempfile
 import subprocess
 from typing import Dict, Any, Tuple
 
-from config import get_current_configuration, mask_key
-from installer import detect_claude_code
-from openrouter import validate_api_key, test_inference
+from .config import get_current_configuration, mask_key
+from .installer import detect_claude_code
+from .openrouter import validate_api_key, test_inference
 
 
 def run_claude_inference_test(prompt: str = "Respond strictly with: Verification test successful.", timeout: int = 35) -> Tuple[bool, str, str, int]:

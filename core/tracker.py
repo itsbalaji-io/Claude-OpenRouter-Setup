@@ -11,7 +11,7 @@ import json
 from datetime import datetime, timezone
 from typing import Dict, Any, Tuple, List
 
-from openrouter import _make_request, OPENROUTER_AUTH_URL
+from .openrouter import _make_request, OPENROUTER_AUTH_URL
 
 USAGE_FILE = os.path.expanduser(os.path.join("~", ".claude_openrouter_usage.json"))
 

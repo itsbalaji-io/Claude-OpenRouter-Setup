@@ -184,7 +184,7 @@ def add_directory_to_path(target_dir: str) -> bool:
                 if target_dir.lower() not in [p.lower() for p in win_parts]:
                     win_parts.append(target_dir)
                     winreg.SetValueEx(k, "Path", 0, winreg.REG_SZ, ";".join(win_parts))
-            from config import broadcast_setting_change
+            from .config import broadcast_setting_change
             broadcast_setting_change()
             return True
         except Exception:

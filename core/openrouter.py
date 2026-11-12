@@ -184,7 +184,7 @@ def test_inference(api_key: str, model_id: str, prompt: str = "Say hello in one 
         prompt_tokens = usage.get("input_tokens", 0)
         completion_tokens = usage.get("output_tokens", 0)
         try:
-            from tracker import record_usage_event
+            from .tracker import record_usage_event
             record_usage_event(
                 model=model_id,
                 prompt_tokens=prompt_tokens,
@@ -199,7 +199,7 @@ def test_inference(api_key: str, model_id: str, prompt: str = "Say hello in one 
 
     err_msg = res if isinstance(res, str) else json.dumps(res)
     try:
-        from tracker import record_usage_event
+        from .tracker import record_usage_event
         record_usage_event(
             model=model_id,
             prompt_tokens=0,

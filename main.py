@@ -13,7 +13,7 @@ SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 if SCRIPT_DIR not in sys.path:
     sys.path.insert(0, SCRIPT_DIR)
 
-from config import (
+from core.config import (
     mask_key,
     clean_api_key,
     validate_key_format,
@@ -25,7 +25,7 @@ from config import (
     get_clipboard_text,
     DEFAULT_MODEL,
 )
-from installer import (
+from core.installer import (
     is_admin,
     get_system_info,
     get_powershell_version,
@@ -36,17 +36,17 @@ from installer import (
     install_nodejs,
     install_claude_code,
 )
-from openrouter import (
+from core.openrouter import (
     validate_api_key,
     fetch_models,
 )
-from verifier import run_full_verification
-from tracker import (
+from core.verifier import run_full_verification
+from core.tracker import (
     fetch_openrouter_account_stats,
     get_local_usage_summary,
     clear_local_usage,
 )
-from tui import (
+from core.tui import (
     Color,
     Spinner,
     clear_screen,
