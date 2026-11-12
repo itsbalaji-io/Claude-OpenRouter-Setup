@@ -59,7 +59,7 @@ def get_clipboard_text() -> Optional[str]:
         pbpaste = shutil.which("pbpaste")
         if pbpaste:
             try:
-                res = subprocess.run([pbpaste], capture_output=True, text=True, timeout=3)
+                res = subprocess.run([pbpaste], capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=3)
                 if res.returncode == 0 and res.stdout.strip():
                     return res.stdout.strip()
             except Exception:
@@ -70,7 +70,7 @@ def get_clipboard_text() -> Optional[str]:
             exe = shutil.which(tool)
             if exe:
                 try:
-                    res = subprocess.run([exe] + args, capture_output=True, text=True, timeout=3)
+                    res = subprocess.run([exe] + args, capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=3)
                     if res.returncode == 0 and res.stdout.strip():
                         return res.stdout.strip()
                 except Exception:

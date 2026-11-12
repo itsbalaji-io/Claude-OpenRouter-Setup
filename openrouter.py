@@ -30,7 +30,7 @@ def _repair_windows_dns() -> bool:
             "powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-Command",
             "Get-NetAdapter -ErrorAction SilentlyContinue | Where-Object Status -eq 'Up' | Set-DnsClientServerAddress -ServerAddresses ('8.8.8.8','1.1.1.1') -ErrorAction SilentlyContinue; Clear-DnsClientCache"
         ]
-        res = subprocess.run(cmd, capture_output=True, text=True, timeout=8)
+        res = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=8)
         return res.returncode == 0
     except Exception:
         return False
