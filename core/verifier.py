@@ -37,8 +37,19 @@ def run_claude_inference_test(prompt: str = "Respond strictly with: Verification
         if v is not None:
             env[k] = v
 
-    # Ensure ANTHROPIC_API_KEY is unset so Claude Code doesn't hit Anthropic directly
-    env.pop("ANTHROPIC_API_KEY", None)
+    # Explicitly guarantee ANTHROPIC_BASE_URL points to OpenRouter gateway
+    env["ANTHROPIC_BASE_URL"] = cfg.get("ANTHROPIC_BASE_URL") or "https://openrouter.ai/api"
+
+    # Set ANTHROPIC_API_KEY explicitly to empty string so Claude Code uses ANTHROPIC_AUTH_TOKEN
+    env["ANTHROPIC_API_KEY"] = ""
+
+    # Ensure all default model tiers are defined for Claude Code
+    active_model = cfg.get("ANTHROPIC_MODEL") or cfg.get("OPENROUTER_MODEL") or "recursive/flint-v1.0:free"
+    env["ANTHROPIC_MODEL"] = active_model
+    env["OPENROUTER_MODEL"] = active_model
+    env["ANTHROPIC_DEFAULT_HAIKU_MODEL"] = active_model
+    env["ANTHROPIC_DEFAULT_SONNET_MODEL"] = active_model
+    env["ANTHROPIC_DEFAULT_OPUS_MODEL"] = active_model
 
     # Run in an isolated temporary directory
     try:
@@ -95,6 +106,11 @@ def run_full_verification() -> Dict[str, Any]:
 
     # 2. Environment variables check
     cfg = get_current_configuration()
+    if cfg.get("OPENROUTER_API_KEY") and cfg.get("ANTHROPIC_BASE_URL") != "https://openrouter.ai/api":
+        from .config import repair_environment
+        repair_environment()
+        cfg = get_current_configuration()
+
     has_key = bool(cfg.get("OPENROUTER_API_KEY"))
     has_base = cfg.get("ANTHROPIC_BASE_URL") == "https://openrouter.ai/api"
     has_model = bool(cfg.get("ANTHROPIC_MODEL"))

@@ -290,5 +290,47 @@ class TestMainCLIOptions(unittest.TestCase):
         mock_update.assert_called_once_with("recursive/flint-v1.0:free")
 
 
+class TestVerifierModule(unittest.TestCase):
+    @patch("core.verifier.detect_claude_code")
+    @patch("subprocess.run")
+    def test_claude_inference_test_env_vars(self, mock_run, mock_detect):
+        mock_detect.return_value = (True, "C:\\mock\\claude.exe", "2.1.322")
+        mock_run.return_value = MagicMock(returncode=0, stdout="Verification test successful.", stderr="")
+
+        from core import verifier
+        ok, out, err, code = verifier.run_claude_inference_test()
+        self.assertTrue(ok)
+        self.assertEqual(code, 0)
+
+        # Verify that subprocess was called with correct OpenRouter environment mapping
+        call_kwargs = mock_run.call_args[1]
+        env_passed = call_kwargs["env"]
+        self.assertEqual(env_passed.get("ANTHROPIC_BASE_URL"), "https://openrouter.ai/api")
+        self.assertEqual(env_passed.get("ANTHROPIC_API_KEY"), "")
+        self.assertIn("ANTHROPIC_DEFAULT_HAIKU_MODEL", env_passed)
+        self.assertIn("ANTHROPIC_DEFAULT_SONNET_MODEL", env_passed)
+        self.assertIn("ANTHROPIC_DEFAULT_OPUS_MODEL", env_passed)
+
+    @patch("core.verifier.detect_claude_code")
+    @patch("core.verifier.get_current_configuration")
+    @patch("core.verifier.validate_api_key")
+    @patch("core.verifier.test_inference")
+    @patch("core.verifier.run_claude_inference_test")
+    def test_full_verification_auto_heals_base_url(self, mock_cli, mock_inf, mock_val, mock_cfg, mock_detect):
+        mock_detect.return_value = (True, "C:\\mock\\claude.exe", "2.1.322")
+        mock_cfg.side_effect = [
+            {"OPENROUTER_API_KEY": "sk-or-v1-mykey1234567890", "ANTHROPIC_BASE_URL": None, "ANTHROPIC_MODEL": "recursive/flint-v1.0:free"},
+            {"OPENROUTER_API_KEY": "sk-or-v1-mykey1234567890", "ANTHROPIC_BASE_URL": "https://openrouter.ai/api", "ANTHROPIC_MODEL": "recursive/flint-v1.0:free"},
+        ]
+        mock_val.return_value = (True, {"label": "Key"}, "Valid")
+        mock_inf.return_value = (True, "Hello", {})
+        mock_cli.return_value = (True, "Success", "", 0)
+
+        from core import verifier
+        rep = verifier.run_full_verification()
+        self.assertTrue(rep["env_configured"])
+        self.assertTrue(rep["overall_success"])
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -456,6 +456,7 @@ def run_guided_setup():
         print_success(f"OpenRouter API key is already configured: {mask_key(cfg.get('OPENROUTER_API_KEY'))}")
 
     menu_switch_model()
+    repair_environment()
     menu_test_connection()
 
 

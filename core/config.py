@@ -233,11 +233,13 @@ def apply_openrouter_config(api_key: str, model: str, context_tokens: int = DEFA
 
 def update_model(model: str, context_tokens: Optional[int] = None) -> None:
     clean_model = model.strip()
+    set_user_env_var("ANTHROPIC_BASE_URL", ANTHROPIC_BASE_URL)
     for var in ("OPENROUTER_MODEL", "ANTHROPIC_MODEL", "ANTHROPIC_DEFAULT_HAIKU_MODEL",
                 "ANTHROPIC_DEFAULT_SONNET_MODEL", "ANTHROPIC_DEFAULT_OPUS_MODEL"):
         set_user_env_var(var, clean_model)
     if context_tokens:
         set_user_env_var("CLAUDE_CODE_MAX_CONTEXT_TOKENS", str(context_tokens))
+    delete_user_env_var("ANTHROPIC_API_KEY")
     broadcast_setting_change()
 
 
@@ -245,6 +247,8 @@ def update_api_key(api_key: str) -> None:
     clean_key = api_key.strip()
     set_user_env_var("OPENROUTER_API_KEY", clean_key)
     set_user_env_var("ANTHROPIC_AUTH_TOKEN", clean_key)
+    set_user_env_var("ANTHROPIC_BASE_URL", ANTHROPIC_BASE_URL)
+    delete_user_env_var("ANTHROPIC_API_KEY")
     broadcast_setting_change()
 
 
