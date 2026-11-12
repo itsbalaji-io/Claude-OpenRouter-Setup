@@ -11,7 +11,7 @@ Validates that:
 import os
 import tempfile
 import subprocess
-from typing import Dict, Any, Tuple, Optional
+from typing import Dict, Any, Tuple
 
 from config import get_current_configuration, mask_key
 from installer import detect_claude_code

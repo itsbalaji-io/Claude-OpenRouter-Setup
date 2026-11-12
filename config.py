@@ -1,4 +1,4 @@
-"""Configuration and environment variable management for Claude Code + OpenRouter.
+r"""Configuration and environment variable management for Claude Code + OpenRouter.
 
 Supports:
 - Windows: Persistent User-level environment in HKCU\Environment + WM_SETTINGCHANGE

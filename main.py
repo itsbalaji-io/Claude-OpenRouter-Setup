@@ -17,12 +17,12 @@ from config import (
     mask_key,
     clean_api_key,
     validate_key_format,
-    apply_openrouter_config,
     update_model,
     update_api_key,
     get_display_status,
     repair_environment,
     get_current_configuration,
+    get_clipboard_text,
     DEFAULT_MODEL,
 )
 from installer import (
@@ -58,7 +58,6 @@ from tui import (
     print_info,
     menu_select,
     prompt_text,
-    is_interactive,
 )
 
 # Curated Top Free Models on OpenRouter

@@ -19,7 +19,6 @@ import config
 import openrouter
 import installer
 import tracker
-import tui
 
 
 class TestConfigModule(unittest.TestCase):
@@ -212,6 +211,79 @@ class TestFreeModelsSelection(unittest.TestCase):
         for m in main.TOP_FREE_MODELS:
             self.assertTrue(m["id"].endswith(":free"), f"Model {m['id']} is not free!")
             self.assertGreater(m.get("context_length", 0), 0)
+
+
+class TestClipboardAndApiKeyPrompt(unittest.TestCase):
+    @patch("subprocess.run")
+    def test_get_clipboard_text_win32(self, mock_run):
+        mock_run.return_value = MagicMock(returncode=0, stdout="sk-or-v1-testclipboard1234567890\n")
+        with patch("sys.platform", "win32"):
+            text = config.get_clipboard_text()
+            self.assertEqual(text, "sk-or-v1-testclipboard1234567890")
+
+    @patch("subprocess.run", side_effect=Exception("error"))
+    def test_get_clipboard_text_error(self, mock_run):
+        with patch("sys.platform", "win32"):
+            text = config.get_clipboard_text()
+            self.assertIsNone(text)
+
+    @patch("main.get_clipboard_text")
+    @patch("main.prompt_text")
+    def test_prompt_user_api_key_clipboard_accepted(self, mock_prompt_text, mock_clip):
+        valid_clip_key = "sk-or-v1-abcdef1234567890abcdef1234567890"
+        mock_clip.return_value = valid_clip_key
+        mock_prompt_text.return_value = "y"
+
+        import main
+        key = main.prompt_user_api_key()
+        self.assertEqual(key, valid_clip_key)
+
+    @patch("main.get_clipboard_text")
+    @patch("main.prompt_text")
+    @patch("builtins.input")
+    def test_prompt_user_api_key_clipboard_declined(self, mock_input, mock_prompt_text, mock_clip):
+        mock_clip.return_value = "sk-or-v1-clipboard1234567890abcdef"
+        mock_prompt_text.return_value = "n"
+        mock_input.return_value = "sk-or-v1-manualinput1234567890abcdef"
+
+        import main
+        key = main.prompt_user_api_key()
+        self.assertEqual(key, "sk-or-v1-manualinput1234567890abcdef")
+
+    @patch("main.get_clipboard_text")
+    @patch("builtins.input")
+    def test_prompt_user_api_key_manual(self, mock_input, mock_clip):
+        mock_clip.return_value = None
+        mock_input.return_value = "  sk-or-v1-typedkey1234567890abcdef  "
+
+        import main
+        key = main.prompt_user_api_key()
+        self.assertEqual(key, "sk-or-v1-typedkey1234567890abcdef")
+
+
+class TestMainCLIOptions(unittest.TestCase):
+    @patch("main.menu_display_status")
+    def test_cli_status(self, mock_status):
+        import main
+        with patch("sys.argv", ["main.py", "--status"]):
+            main.main()
+        mock_status.assert_called_once_with(wait=False)
+
+    @patch("builtins.print")
+    def test_cli_list_models(self, mock_print):
+        import main
+        with patch("sys.argv", ["main.py", "--list-models"]):
+            main.main()
+        self.assertTrue(mock_print.called)
+
+    @patch("main.update_model")
+    def test_cli_model_update(self, mock_update):
+        import main
+        with patch("sys.argv", ["main.py", "--model", "recursive/flint-v1.0:free"]):
+            with self.assertRaises(SystemExit) as cm:
+                main.main()
+            self.assertEqual(cm.exception.code, 0)
+        mock_update.assert_called_once_with("recursive/flint-v1.0:free")
 
 
 if __name__ == "__main__":

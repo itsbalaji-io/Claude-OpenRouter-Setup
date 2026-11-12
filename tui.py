@@ -10,11 +10,10 @@ Features:
 - Automatic fallback for non-interactive / redirected environments
 """
 
-import os
 import sys
 import time
 import threading
-from typing import List, Tuple, Optional, Any, Dict, Callable
+from typing import List, Tuple, Optional, Dict, Callable
 
 
 # Enable ANSI Virtual Terminal processing on Windows 10/11

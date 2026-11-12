@@ -8,9 +8,8 @@ Provides:
 
 import os
 import json
-import time
 from datetime import datetime, timezone
-from typing import Dict, Any, Optional, Tuple, List
+from typing import Dict, Any, Tuple, List
 
 from openrouter import _make_request, OPENROUTER_AUTH_URL
 
